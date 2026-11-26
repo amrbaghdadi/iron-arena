@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import { MOVES, POWERS } from './config.js?v=3';
-import * as TX from './textures.js?v=3';
-import { clamp, lerp, smooth, easeOut } from './utils.js?v=3';
+import { MOVES, POWERS } from './config.js?v=4';
+import * as TX from './textures.js?v=4';
+import { clamp, lerp, smooth, easeOut } from './utils.js?v=4';
 
 /* ------------------------------------------------------------------
    Pose system. A pose = rotations (x,y,z in radians) for each joint.

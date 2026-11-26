@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { Fighter } from './fighter.js?v=3';
-import { CONFIG } from './config.js?v=3';
+import { Fighter } from './fighter.js?v=4';
+import { CONFIG } from './config.js?v=4';
 
 /* Human fighter. slot 0 = Player 1 (keyboard + mouse in 1P mode, and/or pad slot 0),
    slot 1 = Player 2 (pad slot 1 only). Add more players by creating more Player(game, model, slot). */
@@ -44,7 +44,7 @@ export class Player extends Fighter {
     if (this.kbEnabled) { if (k.has('KeyW')) f += 1; if (k.has('KeyS')) f -= 1; if (k.has('KeyD')) r += 1; if (k.has('KeyA')) r -= 1; }
     if (P.connected(s)) {
       r += P.axis(s, 0); f -= P.axis(s, 1);
-      if (P.held(s, M.dpadUp)) f += 1; if (P.held(s, M.dpadDown)) f -= 1; if (P.held(s, M.dpadRight)) r += 1; if (P.held(s, M.dpadLeft)) r -= 1;
+      if (P.held(s, 'dup')) f += 1; if (P.held(s, 'ddown')) f -= 1; if (P.held(s, 'dright')) r += 1; if (P.held(s, 'dleft')) r -= 1;
     }
     const fx = Math.sin(y), fz = Math.cos(y), rx = -Math.cos(y), rz = Math.sin(y);
     const v = this._mv.set(fx * f + rx * r, 0, fz * f + rz * r); if (v.lengthSq() > 1) v.normalize(); return v.clone();
@@ -54,15 +54,26 @@ export class Player extends Fighter {
     if (!P.connected(s)) return;
     if (P.anyPressed(s) && s === 0) this.game.padUsed = true;
     if (!this.enabled || this.game.paused) return;
-    if (P.pressed(s, M.jump)) this.queue('jump');
-    const mod = P.held(s, M.mod); // L1 held = power modifier: L1+Square freeze, L1+Triangle shockwave
-    if (P.pressed(s, M.light)) this.queue(mod ? 'freeze' : 'light');
-    if (P.pressed(s, M.heavy)) this.queue(mod ? 'shock' : 'heavy');
-    if (P.pressed(s, M.lightning)) this.queue('lightning');
-    if (P.pressed(s, M.fire)) this.queue('fire');
-    if (P.pressed(s, M.dash)) this.queue('dash', this.moveDir());
-    if (P.pressed(s, M.kick)) this.queue('kick');
-    if (s === 0 && P.pressed(s, M.lock)) this.toggleLock();
+    // Powers. Direct: R1 lightning, R2 fire. With L1 held every face button is a power (fallback that works on any layout):
+    // L1+Square freeze, L1+Triangle shockwave, L1+X fire, L1+Circle lightning.
+    const mod = P.held(s, 'mod');
+    if (mod) {
+      if (P.pressed(s, 'light')) this.queue('freeze');
+      if (P.pressed(s, 'heavy')) this.queue('shock');
+      if (P.pressed(s, 'jump')) this.queue('fire');
+      if (P.pressed(s, 'dash')) this.queue('lightning');
+    } else {
+      if (P.pressed(s, 'jump')) this.queue('jump');
+      if (P.pressed(s, 'light')) this.queue('light');
+      if (P.pressed(s, 'heavy')) this.queue('heavy');
+      if (P.pressed(s, 'dash')) this.queue('dash', this.moveDir());
+    }
+    if (P.pressed(s, 'lightning')) this.queue('lightning');
+    if (P.pressed(s, 'fire')) this.queue('fire');
+    if (P.pressed(s, 'freeze')) this.queue('freeze');
+    if (P.pressed(s, 'shock')) this.queue('shock');
+    if (P.pressed(s, 'kick')) this.queue('kick');
+    if (s === 0 && P.pressed(s, 'lock')) this.toggleLock();
     if (s === 0 && this.game.mode === '1p') { // right stick = camera (single player only)
       const rdt = this.game.rawDt || 0.016;
       const ax = P.axis(s, 2), ay = P.axis(s, 3);
@@ -77,7 +88,7 @@ export class Player extends Fighter {
     const dist = this.pos.distanceTo(opp.pos);
     if (two) this.lockOn = true;
     I.run = !(this.lockOn && dist < 5.5);
-    I.block = (this.kbEnabled && (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight'))) || (P.connected(s) && (P.held(s, M.blockA) || P.held(s, M.blockB)));
+    I.block = (this.kbEnabled && (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight'))) || (P.connected(s) && (P.held(s, 'block') || P.held(s, 'blockB')));
     if (!this.lockOn && d.lengthSq() > 0.05 && !this.isDown) { this.faceOpp = false; this.moveFacing = Math.atan2(d.x, d.z); }
     else { this.faceOpp = true; this.moveFacing = null; }
     if (this.state === 'attack' && dist < 8) { this.faceOpp = true; this.moveFacing = null; }

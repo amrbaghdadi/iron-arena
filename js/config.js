@@ -61,7 +61,7 @@ export const FIGHTER = {
 //  POWERS (v3). cost = mana. cooldown in seconds. All numbers can be changed here.
 //  startup/active/dur are the cast animation timings (release = moment the power is launched).
 // ============================================================
-export const MANA = { max: 100, start: 40, regen: 3.5, hitGain: 0.7, hitTakenGain: 0.35 };
+export const MANA = { max: 100, start: 100, regen: 4, hitGain: 0.7, hitTakenGain: 0.35 };
 export const POWERS = {
   lightning: { label: 'LIGHTNING', color: '#9bd0ff', needsSpecial: true, cost: 0, cooldown: 0, startup: 1.0, active: 0.25, dur: 1.9, lockAt: 0.6,
                dmg: 40, executeBelow: 35, radius: 2.2, blockMult: 0.4, kb: 9 },

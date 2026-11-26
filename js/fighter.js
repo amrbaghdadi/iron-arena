@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { CONFIG, MOVES, LIGHT_CHAIN, FIGHTER, MANA, POWER_IDS } from './config.js?v=3';
-import { clamp, damp, dampAngle, angleDiff } from './utils.js?v=3';
+import { CONFIG, MOVES, LIGHT_CHAIN, FIGHTER, MANA, POWER_IDS } from './config.js?v=4';
+import { clamp, damp, dampAngle, angleDiff } from './utils.js?v=4';
 
 const ATTACK_ACTIONS = ['light', 'kick', 'heavy'];
 

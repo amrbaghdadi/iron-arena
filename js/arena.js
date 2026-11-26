@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { CONFIG, QUALITY } from './config.js?v=3';
-import { rand } from './utils.js?v=3';
-import * as TX from './textures.js?v=3';
+import { CONFIG, QUALITY } from './config.js?v=4';
+import { rand } from './utils.js?v=4';
+import * as TX from './textures.js?v=4';
 
 const SUN_DIR = new THREE.Vector3(14, 24, -10).normalize();
 

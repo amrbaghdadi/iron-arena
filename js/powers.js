@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { CONFIG, POWERS, POWER_IDS } from './config.js?v=3';
-import { clamp, rand } from './utils.js?v=3';
+import { CONFIG, POWERS, POWER_IDS } from './config.js?v=4';
+import { clamp, rand } from './utils.js?v=4';
 
 /* Special powers: lightning (ultimate), fire, freeze, shockwave.
    To change strength / cost / cooldown edit POWERS and MANA in js/config.js (no code needed).
@@ -32,10 +32,10 @@ export class Powers {
   cast(f, id) {
     const def = POWERS[id], g = this.game;
     if (!f.canAct || !f.onGround) return false;
-    if (id === 'lightning') { if (f.special < CONFIG.specialMax) { g.ui.flashAbility(f, id); return false; } f.special = 0; }
+    if (id === 'lightning') { if (f.special < CONFIG.specialMax) { g.ui.flashAbility(f, id, 'Lightning needs a FULL gold bar'); return false; } f.special = 0; }
     else {
-      if (f.cd[id] > 0) { g.ui.flashAbility(f, id); return false; }
-      if (f.mana < def.cost) { g.ui.flashMana(f); return false; }
+      if (f.cd[id] > 0) { g.ui.flashAbility(f, id, def.label + ' cooldown ' + Math.ceil(f.cd[id]) + 's'); return false; }
+      if (f.mana < def.cost) { g.ui.flashMana(f); g.ui.flashAbility(f, id, 'Not enough mana (' + def.cost + ')'); return false; }
       f.mana -= def.cost; f.cd[id] = def.cooldown; f.cdMax[id] = def.cooldown;
     }
     f.castId = id; f.castDef = def; f.castT = 0; f.castRel = false; f.move = null; f.moveId = null; f.vel.set(0, 0, 0); f.comboIdx = 0;

@@ -6,19 +6,20 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js';
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
-import { CONFIG, QUALITY, QUALITY_ORDER } from './config.js?v=3';
-import { Powers } from './powers.js?v=3';
-import { clamp, damp, lerp } from './utils.js?v=3';
-import { AudioEngine } from './audio.js?v=3';
-import { Particles } from './particles.js?v=3';
-import { Arena } from './arena.js?v=3';
-import { CameraRig } from './camera.js?v=3';
-import { UI } from './ui.js?v=3';
-import { Combat } from './combat.js?v=3';
-import { Player } from './player.js?v=3';
-import { Enemy } from './enemy.js?v=3';
-import { Pads } from './pads.js?v=3';
-import { loadCharacterAsset, createModel } from './rig.js?v=3';
+import { CONFIG, QUALITY, QUALITY_ORDER } from './config.js?v=4';
+import { Powers } from './powers.js?v=4';
+import { PadSetup } from './padsetup.js?v=4';
+import { clamp, damp, lerp } from './utils.js?v=4';
+import { AudioEngine } from './audio.js?v=4';
+import { Particles } from './particles.js?v=4';
+import { Arena } from './arena.js?v=4';
+import { CameraRig } from './camera.js?v=4';
+import { UI } from './ui.js?v=4';
+import { Combat } from './combat.js?v=4';
+import { Player } from './player.js?v=4';
+import { Enemy } from './enemy.js?v=4';
+import { Pads } from './pads.js?v=4';
+import { loadCharacterAsset, createModel } from './rig.js?v=4';
 
 /* Final pass: vignette + film grain + chromatic aberration (strong hits) + white flash + freeze/burn tint */
 const FinalShader = {
@@ -81,7 +82,7 @@ export class Game {
     this.ai = new Enemy(this, createModel(asset, 'enemy', CONFIG.modelHeight));
     this.p2 = new Player(this, createModel(asset, 'enemy', CONFIG.modelHeight), 1);
     this.enemy = this.ai; this.setMode('1p'); this.renderPadMap();
-    this.combat = new Combat(this); this.powers = new Powers(this);
+    this.combat = new Combat(this); this.powers = new Powers(this); this.wiz = new PadSetup(this);
     this.placeFighters(); this.bindUI(); this.bindWindow();
     ui.progress(1, 'Ready'); await new Promise(r => setTimeout(r, 250));
     this.toMenu();
@@ -125,18 +126,20 @@ export class Game {
   }
   padLabel(i) { return ['\u2715 (X)', '\u25CB (Circle)', '\u25A1 (Square)', '\u25B3 (Triangle)', 'L1', 'R1', 'L2', 'R2', 'Share', 'Options', 'L3', 'R3', 'D-pad Up', 'D-pad Down', 'D-pad Left', 'D-pad Right'][i] || ('Button ' + i); }
   renderPadMap() {
-    const M = CONFIG.padMap, L = (k) => this.padLabel(M[k]);
+    const L = (k) => this.pads.label(k);
     const rows = [['Left stick / D-pad', 'Move'], [L('jump'), 'Jump'], [L('light'), 'Light attack (combo up to 5 hits)'], [L('heavy'), 'Heavy attack (breaks guard)'], [L('dash'), 'Dash / dodge'],
-      [L('blockA'), 'Block (hold). Tap just before a hit = Parry'], [L('lightning'), 'LIGHTNING ultimate (needs full gold bar)'], [L('fire'), 'FIREBALL (mana)'], [L('mod') + ' + ' + L('freeze'), 'FREEZE (mana)'], [L('mod') + ' + ' + L('shock'), 'SHOCKWAVE (mana)'], [L('kick'), 'Kick'], [L('pause'), 'Pause'],
-      ['Right stick', '1-player only: camera'], [L('lock'), '1-player only: lock-on on/off'], [L('confirm') + ' in lobby', 'Join / leave a 2-player match']];
-    document.getElementById('padMap').innerHTML = '<table>' + rows.map(r => `<tr><td>${r[0]}</td><td colspan="3">${r[1]}</td></tr>`).join('') + '</table><p class="dim">Same buttons for Player 1 and Player 2. To remap, edit CONFIG.padMap in js/config.js.</p>';
+      [L('block'), 'Block (hold). Tap just before a hit = Parry'], [L('lightning'), 'LIGHTNING ultimate (needs a FULL gold bar)'], [L('fire'), 'FIREBALL (mana)'],
+      [L('freeze') !== '-' ? L('freeze') : L('mod') + ' + ' + L('light'), 'FREEZE (mana)'], [L('shock') !== '-' ? L('shock') : L('mod') + ' + ' + L('heavy'), 'SHOCKWAVE (mana)'],
+      [L('mod') + ' + ' + L('jump') + ' / ' + L('dash'), 'Backup: FIRE / LIGHTNING'], [L('kick'), 'Kick'], [L('pause'), 'Pause'],
+      ['Right stick', '1-player only: camera'], [L('lock'), '1-player only: lock-on on/off'], [L('jump') + ' in lobby', 'Join / leave a 2-player match']];
+    document.getElementById('padMap').innerHTML = '<table>' + rows.map(r => `<tr><td>${r[0]}</td><td colspan="3">${r[1]}</td></tr>`).join('') + '</table><p class="dim">Buttons do not match your pad? Press PAD SETUP and follow the steps. F1 (or Share + Options) shows what the browser detects.</p>';
   }
   enterLobby() { this.setMode('2p'); this.state = 'lobby'; this.joined = [false, false]; this.ui.only('lobby'); this.player.reset(); this.p2.reset(); this.placeFighters(true); this.updateLobby(); }
   leaveLobby() { this.toMenu(); }
   updateLobby() {
     const P = this.pads, M = CONFIG.padMap;
     for (let s = 0; s < 2; s++) {
-      if (P.connected(s) && P.pressed(s, M.confirm)) { this.joined[s] = !this.joined[s]; this.audio.init(); this.audio.ui(); }
+      if (P.connected(s) && P.pressed(s, 'confirm')) { this.joined[s] = !this.joined[s]; this.audio.init(); this.audio.ui(); }
       if (!P.connected(s)) this.joined[s] = false;
       const el = document.getElementById('lobP' + (s + 1)), ps = el.querySelector('.ps'), hint = el.querySelector('.hint');
       el.classList.toggle('ready', this.joined[s]); el.classList.toggle('off', !P.connected(s));
@@ -145,7 +148,7 @@ export class Game {
       else { const i = P.info[s] || {}; ps.textContent = 'PAD CONNECTED'; hint.textContent = (i.id || '').slice(0, 48) + (i.mapping && i.mapping !== 'standard' ? ' (non-standard mapping, buttons may differ)' : '') + '  |  Press \u2715 to join'; }
     }
     const both = this.joined[0] && this.joined[1]; document.getElementById('btnLobbyStart').disabled = !both;
-    if (both && (P.pressed(0, M.pause) || P.pressed(1, M.pause))) this.startMatch();
+    if (both && (P.pressed(0, 'pause') || P.pressed(1, 'pause'))) this.startMatch();
   }
   placeFighters(menu) {
     const p = this.player, e = this.enemy;
@@ -161,7 +164,7 @@ export class Game {
   }
   startMatch() {
     this.audio.init(); this.audio.startMusic(); this.wins = { player: 0, enemy: 0 }; this.round = 1; this.drawCount = 0;
-    this.ai.setDifficulty(CONFIG.difficulty); this.missing.clear(); this.pauseMsg = ''; this.padUsed = this.pads.anyPressed(0); this.ui.setNames(this.mode === '2p'); this.ui.hideAllScreens(); this.ui.hud(true); this.startRound();
+    this.ai.setDifficulty(CONFIG.difficulty); this.missing.clear(); this.pauseMsg = ''; this.padUsed = this.pads.anyPressed(0); this.ui.setNames(this.mode === '2p'); this.ui.hideAllScreens(); this.ui.hud(true); this.startRound(); if (this.mode === '1p') this.ui.toast('Powers: Lightning needs a FULL gold bar. Fire / Freeze / Shock use the purple mana bar.', 5000);
   }
   startRound() {
     const p = this.player, e = this.enemy;
@@ -218,6 +221,9 @@ export class Game {
     click('btnLobbyControls', () => ui.show('controls')); click('btnLobbyBack', () => this.leaveLobby());
     click('btnDiff', () => { const k = Object.keys(CONFIG.difficulties); CONFIG.difficulty = k[(k.indexOf(CONFIG.difficulty) + 1) % k.length]; try { localStorage.setItem('ia_diff', CONFIG.difficulty); } catch (e) {} this.refreshDiffBtn(); });
     click('btnQuality', () => this.cycleQuality()); click('btnPauseQuality', () => this.cycleQuality());
+    click('btnPadSetup', () => this.wiz.open('menu')); click('btnPadSetup2', () => this.wiz.open('pause')); click('btnPadSetup3', () => this.wiz.open('lobby')); click('btnPadSetup4', () => this.wiz.open('controls'));
+    click('btnWizSkip', () => this.wiz.skip()); click('btnWizBack', () => this.wiz.prev()); click('btnWizReset', () => { this.pads.resetMap(); this.wiz.i = 0; this.wiz.render(); this.ui.toast('Default buttons restored', 2000); });
+    click('btnWizDone', () => this.wiz.close(this.wiz.i >= 11));
     click('btnControls', () => { back = 'menu'; ui.show('controls'); });
     click('btnSound', () => { back = 'menu'; ui.show('sound'); });
     click('btnControlsBack', () => ui.hide('controls')); click('btnSoundBack', () => ui.hide('sound'));
@@ -232,18 +238,21 @@ export class Game {
     addEventListener('resize', () => this.resize());
     addEventListener('blur', () => this.pause());
     document.addEventListener('visibilitychange', () => { if (document.hidden) this.pause(); });
+    addEventListener('keydown', (e) => { if (e.code === 'F1') { e.preventDefault(); this.ui.padDebug(); } });
     addEventListener('keydown', (e) => { if (e.code === 'Escape' || e.code === 'KeyP') { if (!e.repeat) this.togglePause(); } });
     document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement && this.state === 'fight' && !this.paused) this.pause(); });
     this.canvas.addEventListener('mousedown', () => { if (this.mode === '1p' && !this.paused && ['fight', 'intro'].includes(this.state) && !document.pointerLockElement) this.lockPointer(); });
     addEventListener('mousemove', (e) => { if (document.pointerLockElement === this.canvas && !this.paused) { this.cam.addYaw(-e.movementX * 0.0026); this.cam.addPitch(e.movementY * 0.0020); } });
     addEventListener('keydown', (e) => { if (this.audio.ctx === null) this.audio.init(); });
   }
-  padFrame() { // per-frame pad handling that is not tied to a fighter: pause button, lobby
+  padFrame() {
+    if (this.wiz && this.wiz.active) { this.wiz.update(this.rawDt); return; } // per-frame pad handling that is not tied to a fighter: pause button, lobby
     if (this.state === 'lobby') { this.updateLobby(); return; }
     const M = CONFIG.padMap;
+    for (let s = 0; s < 2; s++) if (this.pads.connected(s) && this.pads.held(s, 8) && this.pads.held(s, 9) && (this.pads.pressed(s, 8) || this.pads.pressed(s, 9))) this.ui.padDebug();
     if (this.state === 'fight' || this.state === 'intro' || this.state === 'roundend' || this.paused) {
       const slots = this.mode === '2p' ? [0, 1] : [0];
-      if (slots.some(s => this.pads.connected(s) && this.pads.pressed(s, M.pause))) this.togglePause();
+      if (slots.some(s => this.pads.connected(s) && this.pads.pressed(s, 'pause'))) this.togglePause();
     }
   }
   resize() {
@@ -254,7 +263,7 @@ export class Game {
   loop(now) {
     requestAnimationFrame((t) => this.loop(t));
     const raw = Math.min(0.05, (now - this.last) / 1000); this.last = now; this.rawDt = raw;
-    this.pads.update(); this.padFrame();
+    this.pads.update(); this.padFrame(); this.ui.updatePadDebug(this.pads);
     this.clock += raw;
     // adaptive quality
     this.fpsAcc += raw; this.fpsN++;

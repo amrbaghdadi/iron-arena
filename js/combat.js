@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { CONFIG, FIGHTER, MANA } from './config.js?v=3';
-import { clamp } from './utils.js?v=3';
+import { CONFIG, FIGHTER, MANA } from './config.js?v=4';
+import { clamp } from './utils.js?v=4';
 
 /* Bone-attached hitboxes vs hurtboxes, blocking, parry, counters, hit-stop. */
 export class Combat {

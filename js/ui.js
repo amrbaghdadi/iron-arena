@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CONFIG, POWERS, POWER_IDS, MANA } from './config.js?v=3';
+import { CONFIG, POWERS, POWER_IDS, MANA } from './config.js?v=4';
 
 const $ = (id) => document.getElementById(id);
 export class UI {
@@ -19,7 +19,7 @@ export class UI {
         box.appendChild(c); this.h[k].chips[id] = { el: c, k: c.querySelector('.k'), cdf: c.querySelector('.cdf'), pf: c.querySelector('.pf') };
       }
     }
-    this.screens = ['loading', 'menu', 'lobby', 'controls', 'sound', 'pause', 'result'];
+    this.screens = ['loading', 'menu', 'lobby', 'controls', 'sound', 'pause', 'result', 'padsetup'];
   }
   show(id) { $(id).classList.remove('hidden'); }
   hide(id) { $(id).classList.add('hidden'); }
@@ -42,7 +42,20 @@ export class UI {
     const kb = { lightning: 'Q', fire: 'F', freeze: 'C', shock: 'V' }, pad = { lightning: 'R1', fire: 'R2', freeze: 'L1+\u25A1', shock: 'L1+\u25B3' };
     for (const id of POWER_IDS) { this.h.player.chips[id].k.textContent = two ? pad[id] : kb[id]; this.h.enemy.chips[id].k.textContent = two ? pad[id] : ''; }
   }
-  flashAbility(f, id) { const el = this.h[f.side].chips[id].el; el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 250); }
+  flashAbility(f, id, why) {
+    const el = this.h[f.side].chips[id].el; el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 250);
+    if (why && f.isPlayer) { const now = performance.now(); if (now - (this._hintT || 0) > 700) { this._hintT = now; this.popText(f, why, '#ffd75a'); } }
+  }
+  /* pad debug line: F1 or Options+Share */
+  padDebug(on) { this.dbgOn = on === undefined ? !this.dbgOn : on; $('paddbg').classList.toggle('hidden', !this.dbgOn); }
+  updatePadDebug(P) {
+    if (!this.dbgOn) return; let t = 'PAD DEBUG (F1 or Share+Options to hide)\n';
+    if (!P.count) t += 'No pad seen. Press any button on the pad.\n';
+    for (let s = 0; s < P.slots.length; s++) { const c = P.cur[s]; if (!P.connected(s) || !c) continue;
+      const on = c.b.map((x, i) => x ? i + (c.v && c.v[i] > 0 && c.v[i] < 0.99 ? '(' + c.v[i].toFixed(2) + ')' : '') : null).filter(x => x !== null);
+      t += 'Pad ' + (s + 1) + ' [' + c.mapping + ', ' + c.raw + ' buttons] ' + (c.id || '').slice(0, 44) + '\n  pressed: ' + (on.join(' ') || '-') + '\n  axes: ' + c.a.map(x => x.toFixed(2)).join(' ') + '\n'; }
+    $('paddbg').textContent = t;
+  }
   flashMana(f) { const el = this.h[f.side].mp; el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 250); }
   setLock(on) { $('lockhint').textContent = 'LOCK-ON: ' + (on ? 'ON' : 'OFF') + ' (Tab)'; }
   setCombo(k, n) { const c = $(k === 'player' ? 'combo' : 'combo2'); if (n >= 2) { c.textContent = n + ' HIT COMBO'; c.classList.remove('hidden'); c.style.animation = 'none'; void c.offsetWidth; c.style.animation = ''; } else c.classList.add('hidden'); }

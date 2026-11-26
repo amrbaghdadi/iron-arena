@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>IRON ARENA</title>
-<link rel="stylesheet" href="css/style.css?v=3">
+<link rel="stylesheet" href="css/style.css?v=4">
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
@@ -14,7 +14,7 @@
 </head>
 <body>
 <canvas id="game"></canvas>
-<div id="vignette"></div><div id="tintfx"></div><div id="hitflash"></div><div id="texts"></div><div id="reticle"></div>
+<div id="vignette"></div><div id="tintfx"></div><pre id="paddbg" class="hidden"></pre><div id="hitflash"></div><div id="texts"></div><div id="reticle"></div>
 
 <!-- HUD -->
 <div id="hud" class="hidden">
@@ -54,6 +54,7 @@
   <button class="btn big" id="btnTwo">2 PLAYERS (2 PADS)</button>
   <button class="btn" id="btnDiff">DIFFICULTY: MEDIUM</button>
   <button class="btn" id="btnQuality">QUALITY: MEDIUM</button>
+  <button class="btn" id="btnPadSetup">PAD SETUP (set your buttons)</button>
   <button class="btn" id="btnControls">CONTROLS</button>
   <button class="btn" id="btnSound">SOUND</button>
 </div></div>
@@ -68,6 +69,7 @@
   <p class="dim">Connect each pad (USB or Bluetooth), then press any button on it so the browser can see it. Press &#10005; (X) to join, press &#10005; again to leave. First pad connected = Player 1.</p>
   <button class="btn big" id="btnLobbyStart" disabled>START FIGHT</button>
   <button class="btn" id="btnLobbyControls">BUTTON MAP</button>
+  <button class="btn" id="btnPadSetup3">PAD SETUP</button>
   <button class="btn" id="btnLobbyBack">BACK</button>
 </div></div>
 
@@ -82,10 +84,23 @@
     <tr><td>Q</td><td>LIGHTNING ultimate (needs a full gold bar)</td><td>F</td><td>FIREBALL (35 mana, takes 50% of current HP)</td></tr>
     <tr><td>C</td><td>FREEZE (25 mana, slows the rival)</td><td>V</td><td>SHOCKWAVE (30 mana, pushes back, jump over it)</td></tr>
     <tr><td>Tab</td><td>Lock-on on/off</td><td>Esc / P</td><td>Pause</td></tr>
+    <tr><td>F1</td><td>Show pad debug line (which buttons are pressed)</td><td></td><td></td></tr>
     <tr><td colspan="4" class="dim">Keyboard + mouse is for Player 1 in 1-player mode. Arrow keys move the camera if there is no mouse lock.</td></tr>
   </table>
   <h2 style="margin-top:6px">GAMEPAD (PlayStation)</h2><div id="padMap"></div>
+  <button class="btn" id="btnPadSetup4">PAD SETUP</button>
   <button class="btn" id="btnControlsBack">BACK</button>
+</div></div>
+
+<!-- Pad setup wizard -->
+<div id="padsetup" class="screen hidden"><div class="box wide">
+  <h2>PAD SETUP / ظبط الأزرار</h2>
+  <p class="dim">Use the pad plugged in first. Do not touch the sticks. / استخدم الدراع الأول ومتلمسش العصاية</p>
+  <div id="wizEn" class="wiz"></div><div id="wizAr" class="wiz ar"></div><div id="wizCount" class="dim"></div><div id="wizLast" class="dim"></div>
+  <button class="btn" id="btnWizSkip">SKIP THIS BUTTON / تخطي</button>
+  <button class="btn" id="btnWizBack">BACK ONE STEP / رجوع</button>
+  <button class="btn" id="btnWizReset">RESET TO DEFAULT / الافتراضي</button>
+  <button class="btn big" id="btnWizDone">CANCEL</button>
 </div></div>
 
 <!-- Sound -->
@@ -103,6 +118,7 @@
   <h2>PAUSED</h2><div id="pauseMsg" class="dim hidden"></div>
   <button class="btn big" id="btnResume">RESUME</button>
   <button class="btn" id="btnPauseQuality">QUALITY: MEDIUM</button>
+  <button class="btn" id="btnPadSetup2">PAD SETUP</button>
   <button class="btn" id="btnPauseControls">CONTROLS</button>
   <button class="btn" id="btnPauseSound">SOUND</button>
   <button class="btn" id="btnRestart">RESTART MATCH</button>
@@ -117,6 +133,6 @@
 </div></div>
 
 <div id="toast" class="hidden"></div>
-<script type="module" src="js/main.js?v=3"></script>
+<script type="module" src="js/main.js?v=4"></script>
 </body>
 </html>
