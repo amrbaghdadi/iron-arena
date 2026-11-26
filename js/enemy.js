@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { Fighter } from './fighter.js';
-import { CONFIG } from './config.js';
-import { rand, clamp } from './utils.js';
+import { Fighter } from './fighter.js?v=2';
+import { CONFIG } from './config.js?v=2';
+import { rand, clamp } from './utils.js?v=2';
 
 /* Enemy AI: approach, circle, attack combos, block, dodge, retreat.
    It is imperfect (reaction delay + random mistakes) and adapts to

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { CONFIG } from './config.js';
-import { rand } from './utils.js';
+import { CONFIG } from './config.js?v=2';
+import { rand } from './utils.js?v=2';
 
 function canvasTex(size, draw, repeat, srgb = true) {
   const c = document.createElement('canvas'); c.width = c.height = size; draw(c.getContext('2d'), size);

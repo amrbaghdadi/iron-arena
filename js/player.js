@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { Fighter } from './fighter.js';
-import { CONFIG } from './config.js';
+import { Fighter } from './fighter.js?v=2';
+import { CONFIG } from './config.js?v=2';
 
 /* Human fighter. slot 0 = Player 1 (keyboard + mouse in 1P mode, and/or pad slot 0),
    slot 1 = Player 2 (pad slot 1 only). Add more players by creating more Player(game, model, slot). */

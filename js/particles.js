@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { rand } from './utils.js';
+import { rand } from './utils.js?v=2';
 
 // GPU points particle pool. "additive" is used for sparks/flash, normal blend for dust.
 class Pool {

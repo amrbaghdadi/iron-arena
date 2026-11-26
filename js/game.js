@@ -4,18 +4,18 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { CONFIG } from './config.js';
-import { clamp, damp, lerp } from './utils.js';
-import { AudioEngine } from './audio.js';
-import { Particles } from './particles.js';
-import { Arena } from './arena.js';
-import { CameraRig } from './camera.js';
-import { UI } from './ui.js';
-import { Combat } from './combat.js';
-import { Player } from './player.js';
-import { Enemy } from './enemy.js';
-import { Pads } from './pads.js';
-import { loadCharacterAsset, createModel } from './rig.js';
+import { CONFIG } from './config.js?v=2';
+import { clamp, damp, lerp } from './utils.js?v=2';
+import { AudioEngine } from './audio.js?v=2';
+import { Particles } from './particles.js?v=2';
+import { Arena } from './arena.js?v=2';
+import { CameraRig } from './camera.js?v=2';
+import { UI } from './ui.js?v=2';
+import { Combat } from './combat.js?v=2';
+import { Player } from './player.js?v=2';
+import { Enemy } from './enemy.js?v=2';
+import { Pads } from './pads.js?v=2';
+import { loadCharacterAsset, createModel } from './rig.js?v=2';
 
 const VignetteShader = {
   uniforms: { tDiffuse: { value: null }, amount: { value: 0.55 } },

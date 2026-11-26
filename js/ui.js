@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CONFIG } from './config.js';
+import { CONFIG } from './config.js?v=2';
 
 const $ = (id) => document.getElementById(id);
 export class UI {

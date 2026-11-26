@@ -1,4 +1,4 @@
-import { Game } from './game.js';
+import { Game } from './game.js?v=2';
 
 const params = new URLSearchParams(location.search);
 const game = new Game(params);
