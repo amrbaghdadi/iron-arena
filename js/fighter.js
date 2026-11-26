@@ -8,7 +8,7 @@ const ATTACK_ACTIONS = ['light', 'kick', 'heavy', 'special'];
    Controllers (Player / Enemy) only fill `this.intent` and call queue(). */
 export class Fighter {
   constructor(game, name, model, isPlayer) {
-    this.game = game; this.name = name; this.isPlayer = isPlayer; this.model = model;
+    this.game = game; this.name = name; this.isPlayer = isPlayer; this.side = isPlayer ? 'player' : 'enemy'; this.model = model;
     this.root = new THREE.Group(); this.root.add(model.root); game.scene.add(this.root);
     this.vel = new THREE.Vector3(); this.vy = 0; this.yaw = 0; this.onGround = true;
     this.intent = { mx: 0, mz: 0, run: false, block: false };

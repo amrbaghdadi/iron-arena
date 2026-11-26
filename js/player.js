@@ -2,18 +2,21 @@ import * as THREE from 'three';
 import { Fighter } from './fighter.js';
 import { CONFIG } from './config.js';
 
-/* Keyboard + mouse + gamepad controller. */
+/* Human fighter. slot 0 = Player 1 (keyboard + mouse in 1P mode, and/or pad slot 0),
+   slot 1 = Player 2 (pad slot 1 only). Add more players by creating more Player(game, model, slot). */
 export class Player extends Fighter {
-  constructor(game, model) {
-    super(game, 'You', model, true);
-    this.keys = new Set(); this.lockOn = true; this.pad = null; this.enabled = false;
-    this._mv = new THREE.Vector3(); this.padPrev = {};
-    this.onSwing = (f, id) => game.enemy && game.enemy.observePlayer(id);
-    this.bind();
+  constructor(game, model, slot = 0) {
+    super(game, slot === 0 ? 'You' : 'P2', model, true);
+    this.slot = slot; this.padSlot = slot; this.side = slot === 0 ? 'player' : 'enemy';
+    this.keys = new Set(); this.lockOn = true; this.enabled = false; this.kbEnabled = slot === 0;
+    this._mv = new THREE.Vector3();
+    this.onSwing = (f, id) => { const e = game.enemy; if (e && e !== this && e.observePlayer) e.observePlayer(id); };
+    if (slot === 0) this.bind();
   }
   bind() {
     const g = this.game;
     window.addEventListener('keydown', (e) => {
+      if (!this.kbEnabled) return;
       if (['Space', 'Tab', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
       if (e.repeat) return;
       this.keys.add(e.code);
@@ -22,50 +25,58 @@ export class Player extends Fighter {
       else if (e.code === 'KeyE') this.queue('dash', this.moveDir());
       else if (e.code === 'KeyQ') this.queue('special');
       else if (e.code === 'KeyR') this.queue('kick');
-      else if (e.code === 'Tab') { this.lockOn = !this.lockOn; g.ui.setLock(this.lockOn); g.audio.ui(); }
+      else if (e.code === 'Tab') this.toggleLock();
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
     g.canvas.addEventListener('mousedown', (e) => {
-      if (!this.enabled || g.paused) return;
+      if (!this.kbEnabled || !this.enabled || g.paused) return;
       if (e.button === 0) this.queue('light'); else if (e.button === 2) this.queue('heavy');
     });
     g.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     window.addEventListener('blur', () => this.keys.clear());
   }
-  moveDir() { // world direction from WASD relative to camera
-    const k = this.keys, y = this.game.cam.yaw; let f = 0, r = 0;
-    if (k.has('KeyW')) f += 1; if (k.has('KeyS')) f -= 1; if (k.has('KeyD')) r += 1; if (k.has('KeyA')) r -= 1;
-    const gp = this.pad;
-    if (gp) { if (Math.abs(gp.axes[0]) > 0.2) r += gp.axes[0]; if (Math.abs(gp.axes[1]) > 0.2) f -= gp.axes[1]; }
+  toggleLock() { if (this.game.mode === '2p') return; this.lockOn = !this.lockOn; this.game.ui.setLock(this.lockOn); this.game.audio.ui(); }
+  moveDir() { // world direction from keyboard / stick / d-pad, relative to the camera
+    const g = this.game, P = g.pads, s = this.slot, M = CONFIG.padMap, k = this.keys, y = g.cam.yaw; let f = 0, r = 0;
+    if (this.kbEnabled) { if (k.has('KeyW')) f += 1; if (k.has('KeyS')) f -= 1; if (k.has('KeyD')) r += 1; if (k.has('KeyA')) r -= 1; }
+    if (P.connected(s)) {
+      r += P.axis(s, 0); f -= P.axis(s, 1);
+      if (P.held(s, M.dpadUp)) f += 1; if (P.held(s, M.dpadDown)) f -= 1; if (P.held(s, M.dpadRight)) r += 1; if (P.held(s, M.dpadLeft)) r -= 1;
+    }
     const fx = Math.sin(y), fz = Math.cos(y), rx = -Math.cos(y), rz = Math.sin(y);
     const v = this._mv.set(fx * f + rx * r, 0, fz * f + rz * r); if (v.lengthSq() > 1) v.normalize(); return v.clone();
   }
-  pollPad() {
-    const pads = navigator.getGamepads ? navigator.getGamepads() : []; const gp = this.pad = pads && [...pads].find(p => p && p.connected) || null;
-    if (!gp) return;
-    const b = (i) => gp.buttons[i] && gp.buttons[i].pressed, prev = this.padPrev;
-    const edge = (name, i, fn) => { const v = b(i); if (v && !prev[name]) fn(); prev[name] = v; };
-    if (this.enabled && !this.game.paused) {
-      edge('a', 0, () => this.queue('jump')); edge('x', 2, () => this.queue('light')); edge('y', 3, () => this.queue('heavy'));
-      edge('b', 1, () => this.queue('dash', this.moveDir())); edge('rb', 5, () => this.queue('kick')); edge('rt', 7, () => this.queue('special'));
-      edge('r3', 11, () => { this.lockOn = !this.lockOn; this.game.ui.setLock(this.lockOn); });
-      if (Math.abs(gp.axes[2]) > 0.15) this.game.cam.addYaw(-gp.axes[2] * 0.05);
-      if (Math.abs(gp.axes[3]) > 0.15) this.game.cam.addPitch(gp.axes[3] * 0.03);
+  readPad() { // button presses (just-pressed edges)
+    const P = this.game.pads, s = this.slot, M = CONFIG.padMap;
+    if (!P.connected(s)) return;
+    if (P.anyPressed(s) && s === 0) this.game.padUsed = true;
+    if (!this.enabled || this.game.paused) return;
+    if (P.pressed(s, M.jump)) this.queue('jump');
+    if (P.pressed(s, M.light)) this.queue('light');
+    if (P.pressed(s, M.heavy)) this.queue('heavy');
+    if (P.pressed(s, M.dash)) this.queue('dash', this.moveDir());
+    if (P.pressed(s, M.special)) this.queue('special');
+    if (P.pressed(s, M.kick)) this.queue('kick');
+    if (s === 0 && P.pressed(s, M.lock)) this.toggleLock();
+    if (s === 0 && this.game.mode === '1p') { // right stick = camera (single player only)
+      const rdt = this.game.rawDt || 0.016;
+      const ax = P.axis(s, 2), ay = P.axis(s, 3);
+      if (ax) this.game.cam.addYaw(-ax * 2.6 * rdt); if (ay) this.game.cam.addPitch(ay * 1.5 * rdt);
     }
-    edge('start', 9, () => this.game.togglePause());
   }
   think(dt, opp) {
-    this.pollPad();
-    const I = this.intent;
-    if (!this.enabled || this.game.state !== 'fight') { I.mx = I.mz = 0; I.block = false; return; }
+    const I = this.intent, g = this.game, P = g.pads, s = this.slot, M = CONFIG.padMap, two = g.mode === '2p';
+    if (!this.enabled || g.state !== 'fight') { I.mx = I.mz = 0; I.block = false; return; }
+    this.readPad();
     const d = this.moveDir(); I.mx = d.x; I.mz = d.z;
     const dist = this.pos.distanceTo(opp.pos);
+    if (two) this.lockOn = true;
     I.run = !(this.lockOn && dist < 5.5);
-    I.block = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight') || !!(this.pad && ((this.pad.buttons[4] && this.pad.buttons[4].pressed) || (this.pad.buttons[6] && this.pad.buttons[6].pressed)));
+    I.block = (this.kbEnabled && (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight'))) || (P.connected(s) && (P.held(s, M.blockA) || P.held(s, M.blockB)));
     if (!this.lockOn && d.lengthSq() > 0.05 && !this.isDown) { this.faceOpp = false; this.moveFacing = Math.atan2(d.x, d.z); }
     else { this.faceOpp = true; this.moveFacing = null; }
     if (this.state === 'attack' && dist < 8) { this.faceOpp = true; this.moveFacing = null; }
-    this.cameraKeys(dt);
+    if (this.kbEnabled && !two) this.cameraKeys(dt);
   }
   cameraKeys(dt) {
     const k = this.keys, c = this.game.cam;

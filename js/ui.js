@@ -10,7 +10,7 @@ export class UI {
       player: { hp: q('.left .hp'), hpf: q('.left .hp .fill'), trail: q('.left .hp .trail'), sp: q('.left .sp'), spf: q('.left .sp .fill'), st: q('.left .st'), stf: q('.left .st .fill'), pips: [...document.querySelectorAll('.left .pips i')] },
       enemy: { hp: q('.right .hp'), hpf: q('.right .hp .fill'), trail: q('.right .hp .trail'), sp: q('.right .sp'), spf: q('.right .sp .fill'), st: q('.right .st'), stf: q('.right .st .fill'), pips: [...document.querySelectorAll('.right .pips i')] }
     };
-    this.screens = ['loading', 'menu', 'controls', 'sound', 'pause', 'result'];
+    this.screens = ['loading', 'menu', 'lobby', 'controls', 'sound', 'pause', 'result'];
   }
   show(id) { $(id).classList.remove('hidden'); }
   hide(id) { $(id).classList.add('hidden'); }
@@ -23,11 +23,16 @@ export class UI {
   setTimer(t) { $('timer').textContent = Math.max(0, Math.ceil(t)); }
   setRound(n) { $('roundlbl').textContent = 'ROUND ' + n; }
   setPips(wins) { ['player', 'enemy'].forEach(k => this.h[k].pips.forEach((p, i) => p.classList.toggle('on', i < wins[k]))); }
+  setNames(two) {
+    $('nameP1').textContent = two ? 'PLAYER 1' : 'YOU'; $('enemyName').textContent = two ? 'PLAYER 2' : 'RIVAL';
+    $('nameP1').className = 'name' + (two ? ' p1' : ''); $('enemyName').className = 'name' + (two ? ' p2' : '');
+    $('lockhint').classList.toggle('hidden', two); document.querySelector('.bars').classList.toggle('twop', two);
+  }
   setLock(on) { $('lockhint').textContent = 'LOCK-ON: ' + (on ? 'ON' : 'OFF') + ' (Tab)'; }
-  setCombo(k, n) { if (k !== 'player') return; const c = $('combo'); if (n >= 2) { c.textContent = n + ' HIT COMBO'; c.classList.remove('hidden'); c.style.animation = 'none'; void c.offsetWidth; c.style.animation = ''; } else c.classList.add('hidden'); }
+  setCombo(k, n) { const c = $(k === 'player' ? 'combo' : 'combo2'); if (n >= 2) { c.textContent = n + ' HIT COMBO'; c.classList.remove('hidden'); c.style.animation = 'none'; void c.offsetWidth; c.style.animation = ''; } else c.classList.add('hidden'); }
   hitFlash() { const f = $('hitflash'); f.classList.add('on'); requestAnimationFrame(() => requestAnimationFrame(() => f.classList.remove('on'))); }
-  flashStamina(f) { const el = this.h[f.isPlayer ? 'player' : 'enemy'].st; el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 250); }
-  flashSpecial(f) { const el = this.h[f.isPlayer ? 'player' : 'enemy'].sp; el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 250); }
+  flashStamina(f) { const el = this.h[f.side].st; el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 250); }
+  flashSpecial(f) { const el = this.h[f.side].sp; el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 250); }
   popText(f, text, color) {
     const p = this.project(f.pos, 2.1, this.v); if (!p) return;
     const d = document.createElement('div'); d.className = 'pop'; d.textContent = text; d.style.color = color; d.style.left = p.x + 'px'; d.style.top = p.y + 'px';

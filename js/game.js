@@ -14,6 +14,7 @@ import { UI } from './ui.js';
 import { Combat } from './combat.js';
 import { Player } from './player.js';
 import { Enemy } from './enemy.js';
+import { Pads } from './pads.js';
 import { loadCharacterAsset, createModel } from './rig.js';
 
 const VignetteShader = {
@@ -26,6 +27,7 @@ const VignetteShader = {
 export class Game {
   constructor(params) {
     this.params = params; this.canvas = document.getElementById('game');
+    this.mode = '1p'; this.missing = new Set(); this.joined = [false, false]; this.padUsed = false; this.rawDt = 0.016; this.pauseMsg = '';
     this.state = 'loading'; this.paused = false; this.timers = []; this.hitStopT = 0; this.slow = null; this.timeScale = 1;
     this.wins = { player: 0, enemy: 0 }; this.round = 1; this.roundTime = CONFIG.roundTime; this.clock = 0; this.fpsAcc = 0; this.fpsN = 0; this.lowQ = false;
     try { const d = localStorage.getItem('ia_diff'); if (d && CONFIG.difficulties[d]) CONFIG.difficulty = d; } catch (e) {}
@@ -35,7 +37,8 @@ export class Game {
   get frozen() { return this.state !== 'fight'; }
 
   async init() {
-    const ui = this.ui = new UI(this); this.audio = new AudioEngine();
+    const ui = this.ui = new UI(this); this.audio = new AudioEngine(); this.pads = new Pads();
+    this.pads.onDisconnect = (s) => this.padLost(s); this.pads.onConnect = (s) => this.padBack(s);
     ui.only('loading'); ui.progress(0.05, 'Starting renderer...');
     const r = this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' });
     r.setPixelRatio(Math.min(devicePixelRatio, 1.75)); r.setSize(innerWidth, innerHeight);
@@ -58,8 +61,10 @@ export class Game {
     const asset = await loadCharacterAsset(CONFIG.modelUrl, (p) => ui.progress(0.3 + 0.5 * p));
     if (asset.error) { console.warn('Model load failed:', asset.error); ui.toast('Could not load assets/characterRIGGED.glb. Using the built-in fallback fighter instead.', 7000); }
     this.asset = asset; ui.progress(0.85, 'Creating fighters...'); await new Promise(r => setTimeout(r, 20));
-    this.player = new Player(this, createModel(asset, 'player', CONFIG.modelHeight));
-    this.enemy = new Enemy(this, createModel(asset, 'enemy', CONFIG.modelHeight));
+    this.player = new Player(this, createModel(asset, 'player', CONFIG.modelHeight), 0);
+    this.ai = new Enemy(this, createModel(asset, 'enemy', CONFIG.modelHeight));
+    this.p2 = new Player(this, createModel(asset, 'enemy', CONFIG.modelHeight), 1);
+    this.enemy = this.ai; this.setMode('1p'); this.renderPadMap();
     this.combat = new Combat(this);
     this.placeFighters(); this.bindUI(); this.bindWindow();
     ui.progress(1, 'Ready'); await new Promise(r => setTimeout(r, 250));
@@ -69,6 +74,52 @@ export class Game {
   }
 
   /* ---------------- flow ---------------- */
+  setMode(m) {
+    this.mode = m; const two = m === '2p';
+    this.enemy = two ? this.p2 : this.ai; this.ai.root.visible = !two; this.p2.root.visible = two;
+    this.player.kbEnabled = !two; this.player.keys.clear(); this.player.lockOn = true; this.p2.lockOn = true;
+    this.cam.twoP = two; this.ui.setNames(two);
+  }
+  rumble(f, strong, weak, ms) { if (f && f.padSlot !== undefined && this.pads.connected(f.padSlot)) this.pads.rumble(f.padSlot, strong, weak, ms); }
+  padLost(s) { // a pad was unplugged / lost connection
+    const inMatch = ['fight', 'intro', 'roundend'].includes(this.state);
+    const used = this.mode === '2p' ? s < 2 : (s === 0 && this.padUsed);
+    if (this.state === 'lobby') { this.joined[s] = false; return; }
+    if (inMatch && used) { this.missing.add(s); this.pause('Reconnect Player ' + (s + 1) + "'s pad, then press any button on it"); }
+  }
+  padBack(s) {
+    if (this.missing.has(s)) { this.missing.delete(s); if (this.paused) this.showPauseMsg(); }
+  }
+  showPauseMsg() {
+    const el = document.getElementById('pauseMsg'), btn = document.getElementById('btnResume');
+    if (this.missing.size) { const l = [...this.missing].map(s => 'Player ' + (s + 1)).join(' and '); el.textContent = "Reconnect " + l + "'s pad, then press any button on it"; el.classList.remove('hidden'); btn.disabled = true; }
+    else if (this.pauseMsg) { el.textContent = 'Pad reconnected. Press Resume (or Options).'; el.classList.remove('hidden'); btn.disabled = false; }
+    else { el.classList.add('hidden'); btn.disabled = false; }
+  }
+  padLabel(i) { return ['\u2715 (X)', '\u25CB (Circle)', '\u25A1 (Square)', '\u25B3 (Triangle)', 'L1', 'R1', 'L2', 'R2', 'Share', 'Options', 'L3', 'R3', 'D-pad Up', 'D-pad Down', 'D-pad Left', 'D-pad Right'][i] || ('Button ' + i); }
+  renderPadMap() {
+    const M = CONFIG.padMap, L = (k) => this.padLabel(M[k]);
+    const rows = [['Left stick / D-pad', 'Move'], [L('jump'), 'Jump'], [L('light'), 'Light attack (combo up to 5 hits)'], [L('heavy'), 'Heavy attack (breaks guard)'], [L('dash'), 'Dash / dodge'],
+      [L('blockA') + ' or ' + L('blockB'), 'Block (hold). Tap just before a hit = Parry'], [L('special'), 'Special move (full gold bar)'], [L('kick'), 'Kick'], [L('pause'), 'Pause'],
+      ['Right stick', '1-player only: camera'], [L('lock'), '1-player only: lock-on on/off'], [L('confirm') + ' in lobby', 'Join / leave a 2-player match']];
+    document.getElementById('padMap').innerHTML = '<table>' + rows.map(r => `<tr><td>${r[0]}</td><td colspan="3">${r[1]}</td></tr>`).join('') + '</table><p class="dim">Same buttons for Player 1 and Player 2. To remap, edit CONFIG.padMap in js/config.js.</p>';
+  }
+  enterLobby() { this.setMode('2p'); this.state = 'lobby'; this.joined = [false, false]; this.ui.only('lobby'); this.player.reset(); this.p2.reset(); this.placeFighters(true); this.updateLobby(); }
+  leaveLobby() { this.toMenu(); }
+  updateLobby() {
+    const P = this.pads, M = CONFIG.padMap;
+    for (let s = 0; s < 2; s++) {
+      if (P.connected(s) && P.pressed(s, M.confirm)) { this.joined[s] = !this.joined[s]; this.audio.init(); this.audio.ui(); }
+      if (!P.connected(s)) this.joined[s] = false;
+      const el = document.getElementById('lobP' + (s + 1)), ps = el.querySelector('.ps'), hint = el.querySelector('.hint');
+      el.classList.toggle('ready', this.joined[s]); el.classList.toggle('off', !P.connected(s));
+      if (!P.connected(s)) { ps.textContent = 'NO PAD DETECTED'; hint.textContent = 'Connect a pad and press any button on it'; }
+      else if (this.joined[s]) { ps.textContent = 'READY'; hint.textContent = 'Press \u2715 again to leave'; }
+      else { const i = P.info[s] || {}; ps.textContent = 'PAD CONNECTED'; hint.textContent = (i.id || '').slice(0, 48) + (i.mapping && i.mapping !== 'standard' ? ' (non-standard mapping, buttons may differ)' : '') + '  |  Press \u2715 to join'; }
+    }
+    const both = this.joined[0] && this.joined[1]; document.getElementById('btnLobbyStart').disabled = !both;
+    if (both && (P.pressed(0, M.pause) || P.pressed(1, M.pause))) this.startMatch();
+  }
   placeFighters(menu) {
     const p = this.player, e = this.enemy;
     if (menu) { p.pos.set(-1.4, 0, 0); p.yaw = Math.PI / 2; e.pos.set(1.4, 0, 0); e.yaw = -Math.PI / 2; }
@@ -76,26 +127,26 @@ export class Game {
     p.root.rotation.y = p.yaw; e.root.rotation.y = e.yaw;
   }
   toMenu() {
-    this.state = 'menu'; this.paused = false; this.ui.hud(false); this.ui.only('menu'); this.wins = { player: 0, enemy: 0 };
-    this.player.reset(); this.enemy.reset(); this.placeFighters(true); this.player.faceOpp = false; this.enemy.faceOpp = false;
+    this.setMode('1p'); this.state = 'menu'; this.paused = false; this.missing.clear(); this.pauseMsg = ''; this.ui.hud(false); this.ui.only('menu'); this.wins = { player: 0, enemy: 0 };
+    this.player.reset(); this.ai.reset(); this.p2.reset(); this.placeFighters(true); this.player.faceOpp = false; this.enemy.faceOpp = false;
     this.player.enabled = false; this.audio.setIntensity(0.1); this.refreshDiffBtn(); this.cam.zoom = 0;
     if (document.pointerLockElement) document.exitPointerLock();
   }
   startMatch() {
     this.audio.init(); this.audio.startMusic(); this.wins = { player: 0, enemy: 0 }; this.round = 1; this.drawCount = 0;
-    this.enemy.setDifficulty(CONFIG.difficulty); this.ui.hideAllScreens(); this.ui.hud(true); this.startRound();
+    this.ai.setDifficulty(CONFIG.difficulty); this.missing.clear(); this.pauseMsg = ''; this.padUsed = this.pads.anyPressed(0); this.ui.setNames(this.mode === '2p'); this.ui.hideAllScreens(); this.ui.hud(true); this.startRound();
   }
   startRound() {
     const p = this.player, e = this.enemy;
-    p.reset(); e.reset(); e.resetAI(); this.placeFighters(); this.roundTime = CONFIG.roundTime; this.ui.setTimer(this.roundTime);
+    p.reset(); e.reset(); if (e.resetAI) e.resetAI(); this.placeFighters(); this.roundTime = CONFIG.roundTime; this.ui.setTimer(this.roundTime);
     this.ui.setRound(this.round); this.ui.setPips(this.wins); this.ui.setLock(p.lockOn); this.ui.setCombo('player', 0);
     this.state = 'intro'; p.enabled = false; this.cam.forceSnap(); this.cam.zoom = -1.2; this.zoomTarget = 0; this.audio.setIntensity(0.25);
     this.ui.banner('ROUND ' + this.round); this.audio.bell();
-    this.after(1.6, () => { this.ui.banner('FIGHT!'); this.audio.fight(); this.state = 'fight'; p.enabled = true; });
+    this.after(1.6, () => { this.ui.banner('FIGHT!'); this.audio.fight(); this.state = 'fight'; p.enabled = true; e.enabled = true; });
   }
   endRound(winner, reason) { // winner: player|enemy|null
     if (this.state !== 'fight') return;
-    this.state = 'roundend'; this.player.enabled = false;
+    this.state = 'roundend'; this.player.enabled = false; this.enemy.enabled = false;
     if (winner) this.wins[winner]++; else this.drawCount++;
     this.ui.setPips(this.wins);
     if (reason === 'time') this.ui.banner(winner ? 'TIME UP' : 'DRAW', '', 1800);
@@ -108,21 +159,22 @@ export class Game {
   onKO(loser, winner) {
     if (this.state !== 'fight') return;
     this.audio.ko(); this.ui.banner('K.O.', 'ko'); this.slowmo(0.2, 1.9); this.zoomTarget = 1; this.cam.shake(0.4); this.ui.hitFlash();
-    this.endRound(winner.isPlayer ? 'player' : 'enemy', 'ko');
+    this.rumble(loser, 1, 1, 650); this.rumble(winner, 0.4, 0.8, 350);
+    this.endRound(winner.side, 'ko');
   }
   endMatch() {
     this.state = 'matchend'; this.zoomTarget = 0; const win = this.wins.player > this.wins.enemy;
-    document.getElementById('resultTitle').textContent = win ? 'VICTORY' : 'DEFEAT';
+    document.getElementById('resultTitle').textContent = this.mode === '2p' ? (win ? 'PLAYER 1 WINS' : 'PLAYER 2 WINS') : (win ? 'VICTORY' : 'DEFEAT');
     document.getElementById('resultSub').textContent = `Rounds ${this.wins.player} - ${this.wins.enemy}  |  ${CONFIG.difficulties[CONFIG.difficulty].label}`;
     this.ui.hud(false); this.ui.only('result'); if (document.pointerLockElement) document.exitPointerLock(); this.audio.setIntensity(0.1);
   }
   togglePause() { if (this.paused) this.resume(); else this.pause(); }
-  pause() {
-    if (this.paused || !['fight', 'intro', 'roundend'].includes(this.state)) return;
-    this.paused = true; this.ui.show('pause'); if (document.pointerLockElement) document.exitPointerLock(); this.player.keys.clear(); this.audio.ctx && this.audio.ctx.suspend();
+  pause(msg) {
+    if (this.paused || !['fight', 'intro', 'roundend'].includes(this.state)) { if (this.paused && msg) { this.pauseMsg = msg; this.showPauseMsg(); } return; }
+    this.pauseMsg = msg || ''; this.paused = true; this.ui.show('pause'); this.showPauseMsg(); if (document.pointerLockElement) document.exitPointerLock(); this.player.keys.clear(); this.audio.ctx && this.audio.ctx.suspend();
   }
-  resume() { if (!this.paused) return; this.paused = false; this.ui.hide('pause'); this.ui.hide('controls'); this.ui.hide('sound'); this.audio.ctx && this.audio.ctx.resume(); this.lockPointer(); }
-  lockPointer() { if (this.canvas.requestPointerLock && !this.params.get('nolock')) { try { const p = this.canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) {} } }
+  resume() { if (!this.paused || this.missing.size) return; this.paused = false; this.ui.hide('pause'); this.ui.hide('controls'); this.ui.hide('sound'); this.audio.ctx && this.audio.ctx.resume(); this.lockPointer(); }
+  lockPointer() { if (this.mode === '2p') return; if (this.canvas.requestPointerLock && !this.params.get('nolock')) { try { const p = this.canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) {} } }
 
   after(sec, fn) { this.timers.push({ t: sec, fn }); }
   hitStop(s) { this.hitStopT = Math.max(this.hitStopT, s); }
@@ -133,7 +185,10 @@ export class Game {
   bindUI() {
     const $ = (id) => document.getElementById(id), a = this.audio, ui = this.ui; let back = 'menu';
     const click = (id, fn) => $(id).addEventListener('click', () => { a.init(); a.ui(); fn(); });
-    click('btnStart', () => this.startMatch());
+    click('btnStart', () => { this.setMode('1p'); this.startMatch(); });
+    click('btnTwo', () => this.enterLobby());
+    click('btnLobbyStart', () => { if (this.joined[0] && this.joined[1]) this.startMatch(); });
+    click('btnLobbyControls', () => ui.show('controls')); click('btnLobbyBack', () => this.leaveLobby());
     click('btnDiff', () => { const k = Object.keys(CONFIG.difficulties); CONFIG.difficulty = k[(k.indexOf(CONFIG.difficulty) + 1) % k.length]; try { localStorage.setItem('ia_diff', CONFIG.difficulty); } catch (e) {} this.refreshDiffBtn(); });
     click('btnControls', () => { back = 'menu'; ui.show('controls'); });
     click('btnSound', () => { back = 'menu'; ui.show('sound'); });
@@ -151,9 +206,17 @@ export class Game {
     document.addEventListener('visibilitychange', () => { if (document.hidden) this.pause(); });
     addEventListener('keydown', (e) => { if (e.code === 'Escape' || e.code === 'KeyP') { if (!e.repeat) this.togglePause(); } });
     document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement && this.state === 'fight' && !this.paused) this.pause(); });
-    this.canvas.addEventListener('mousedown', () => { if (!this.paused && ['fight', 'intro'].includes(this.state) && !document.pointerLockElement) this.lockPointer(); });
+    this.canvas.addEventListener('mousedown', () => { if (this.mode === '1p' && !this.paused && ['fight', 'intro'].includes(this.state) && !document.pointerLockElement) this.lockPointer(); });
     addEventListener('mousemove', (e) => { if (document.pointerLockElement === this.canvas && !this.paused) { this.cam.addYaw(-e.movementX * 0.0026); this.cam.addPitch(e.movementY * 0.0020); } });
     addEventListener('keydown', (e) => { if (this.audio.ctx === null) this.audio.init(); });
+  }
+  padFrame() { // per-frame pad handling that is not tied to a fighter: pause button, lobby
+    if (this.state === 'lobby') { this.updateLobby(); return; }
+    const M = CONFIG.padMap;
+    if (this.state === 'fight' || this.state === 'intro' || this.state === 'roundend' || this.paused) {
+      const slots = this.mode === '2p' ? [0, 1] : [0];
+      if (slots.some(s => this.pads.connected(s) && this.pads.pressed(s, M.pause))) this.togglePause();
+    }
   }
   resize() {
     this.renderer.setSize(innerWidth, innerHeight); this.composer.setSize(innerWidth, innerHeight); this.cam.setAspect(innerWidth / innerHeight); this.fx.resize();
@@ -162,7 +225,8 @@ export class Game {
   /* ---------------- main loop ---------------- */
   loop(now) {
     requestAnimationFrame((t) => this.loop(t));
-    const raw = Math.min(0.05, (now - this.last) / 1000); this.last = now;
+    const raw = Math.min(0.05, (now - this.last) / 1000); this.last = now; this.rawDt = raw;
+    this.pads.update(); this.padFrame();
     this.clock += raw;
     // adaptive quality
     this.fpsAcc += raw; this.fpsN++;
@@ -180,8 +244,8 @@ export class Game {
   }
   step(dt, raw) {
     const p = this.player, e = this.enemy;
-    if (this.params.get('bot') && this.state === 'fight') this.botPlayer(dt);
-    if (this.state === 'menu' || this.state === 'matchend') { this.menuCam(raw); }
+    if (this.params.get('bot') && this.state === 'fight' && this.mode === '1p') this.botPlayer(dt);
+    if (this.state === 'menu' || this.state === 'matchend' || this.state === 'lobby') { this.menuCam(raw); }
     p.think(dt, e); e.think(dt, p);
     p.update(dt, e); e.update(dt, p);
     this.separate(p, e); this.arena.constrain(p); this.arena.constrain(e);
@@ -190,10 +254,10 @@ export class Game {
       this.roundTime -= raw * (this.timeScale > 0.5 ? 1 : 0); this.ui.setTimer(this.roundTime);
       if (this.roundTime <= 0) { const a = p.hp, b = e.hp; this.endRound(a > b ? 'player' : b > a ? 'enemy' : null, 'time'); }
     }
-    if (this.state !== 'menu' && this.state !== 'matchend') this.cam.update(raw, p, e, p.lockOn, this.state === 'roundend' ? 'ko' : this.state);
+    if (this.state !== 'menu' && this.state !== 'matchend' && this.state !== 'lobby') this.cam.update(raw, p, e, p.lockOn || this.mode === '2p', this.state === 'roundend' ? 'ko' : this.state);
     this.fx.update(dt); this.arena.update(raw, this.clock, this.fx, this.player.pos.clone().lerp(this.enemy.pos, 0.5));
     this.vig.uniforms.amount.value = 0.5 + (1 - Math.min(p.hp / CONFIG.maxHP, 1)) * 0.25;
-    this.ui.update(raw, p, e, p.lockOn);
+    this.ui.update(raw, p, e, p.lockOn && this.mode === '1p');
     const danger = 1 - Math.min(p.hp, e.hp) / CONFIG.maxHP, act = (p.state === 'attack' || e.state === 'attack') ? 0.15 : 0;
     this._int = damp(this._int ?? 0.3, clamp(0.25 + danger * 0.55 + act, 0, 1), 1.5, raw); if (this.state !== 'menu') this.audio.setIntensity(this._int);
     this.audio.update();

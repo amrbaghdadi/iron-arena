@@ -20,6 +20,11 @@ export const CONFIG = {
   shake: 1.0,            // camera shake strength
   bloom: true,
   difficulty: 'medium',
+  padDeadzone: 0.15,
+  // Gamepad button numbers (standard mapping, PlayStation names). Change a number to remap a button.
+  // 0 X, 1 Circle, 2 Square, 3 Triangle, 4 L1, 5 R1, 6 L2, 7 R2, 8 Share, 9 Options, 10 L3, 11 R3, 12 D-up, 13 D-down, 14 D-left, 15 D-right
+  padMap: { jump: 0, dash: 1, light: 2, heavy: 3, blockA: 4, special: 5, blockB: 6, kick: 7, pause: 9, lock: 11, confirm: 0,
+            dpadUp: 12, dpadDown: 13, dpadLeft: 14, dpadRight: 15 },
   difficulties: {
     easy:   { label: 'Easy',   reaction: 0.55, aggression: 0.32, block: 0.18, dodge: 0.08, comboMax: 2, speed: 0.85, damage: 0.7, decide: 0.75, adapt: 0.0,  mistake: 0.30 },
     medium: { label: 'Medium', reaction: 0.32, aggression: 0.55, block: 0.38, dodge: 0.22, comboMax: 3, speed: 1.0,  damage: 1.0, decide: 0.5,  adapt: 0.55, mistake: 0.15 },

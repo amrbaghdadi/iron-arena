@@ -6,7 +6,7 @@ export class CameraRig {
   constructor(aspect) {
     this.camera = new THREE.PerspectiveCamera(55, aspect, 0.1, 400);
     this.yaw = 0; this.pitch = 0.34; this.dist = 7.4; this.baseFov = 55; this.fovKick = 0; this.shakeAmp = 0; this.lockOffset = 0;
-    this.focus = new THREE.Vector3(0, 1.4, 0); this.mode = 'follow'; this.t = 0; this.zoom = 0; this.snap = true;
+    this.focus = new THREE.Vector3(0, 1.4, 0); this.mode = 'follow'; this.t = 0; this.zoom = 0; this.snap = true; this.twoP = false;
     this._p = new THREE.Vector3(); this._look = new THREE.Vector3(); this.intro = 0;
   }
   addYaw(d) { this.yaw += d; this.lockOffset = clamp(this.lockOffset + d, -0.9, 0.9); }
@@ -20,14 +20,14 @@ export class CameraRig {
     const target = Math.atan2(dx, dz);
     let focusT = this._look.copy(player.pos);
     if (locked || state !== 'fight') {
-      focusT.lerp(enemy.pos, state === 'fight' ? 0.3 : 0.5);
+      focusT.lerp(enemy.pos, this.twoP ? 0.5 : (state === 'fight' ? 0.3 : 0.5));
       this.lockOffset = damp(this.lockOffset, 0, 1.2, dt);
-      const want = target - 0.32 + this.lockOffset; // slightly over the shoulder
+      const want = (this.twoP ? target - 1.1 : target - 0.32) + this.lockOffset; // slightly over the shoulder
       this.yaw = this.snap ? want : dampAngle(this.yaw, want, 6, dt);
     } else { focusT.lerp(enemy.pos, 0.12); }
     focusT.y = 1.35;
     this.focus.lerp(focusT, this.snap ? 1 : 1 - Math.exp(-9 * dt));
-    let dist = this.dist + clamp(sep - 3, 0, 8) * 0.55 - this.zoom * 2.4;
+    let dist = this.twoP ? this.dist + 1.0 + clamp(sep - 3, 0, 14) * 0.9 - this.zoom * 2.4 : this.dist + clamp(sep - 3, 0, 8) * 0.55 - this.zoom * 2.4;
     let pitch = this.pitch + (state === 'ko' ? -0.1 : 0);
     this.dist_ = damp(this.dist_ ?? dist, dist, 4, dt); dist = this.dist_;
     const cp = Math.cos(pitch);

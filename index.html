@@ -20,7 +20,7 @@
 <div id="hud" class="hidden">
   <div class="bars">
     <div class="side left">
-      <div class="name">YOU</div>
+      <div class="name" id="nameP1">YOU</div>
       <div class="hp"><div class="trail"></div><div class="fill"></div></div>
       <div class="sp"><div class="fill"></div></div>
       <div class="st"><div class="fill"></div></div>
@@ -35,7 +35,7 @@
       <div class="pips"><i></i><i></i></div>
     </div>
   </div>
-  <div id="combo" class="hidden"></div>
+  <div id="combo" class="hidden"></div><div id="combo2" class="hidden"></div>
   <div id="lockhint">LOCK-ON: ON (Tab)</div>
   <div id="banner"></div>
 </div>
@@ -46,10 +46,24 @@
 <!-- Main menu -->
 <div id="menu" class="screen hidden"><div class="box">
   <h1>IRON ARENA</h1><p class="sub">Best of 3 rounds</p>
-  <button class="btn big" id="btnStart">START FIGHT</button>
+  <button class="btn big" id="btnStart">1 PLAYER vs AI</button>
+  <button class="btn big" id="btnTwo">2 PLAYERS (2 PADS)</button>
   <button class="btn" id="btnDiff">DIFFICULTY: MEDIUM</button>
   <button class="btn" id="btnControls">CONTROLS</button>
   <button class="btn" id="btnSound">SOUND</button>
+</div></div>
+
+<!-- 2P lobby -->
+<div id="lobby" class="screen hidden"><div class="box wide">
+  <h2>2 PLAYERS</h2>
+  <div class="lobrow">
+    <div class="lobp p1" id="lobP1"><h3>PLAYER 1</h3><div class="ps"></div><div class="hint"></div></div>
+    <div class="lobp p2" id="lobP2"><h3>PLAYER 2</h3><div class="ps"></div><div class="hint"></div></div>
+  </div>
+  <p class="dim">Connect each pad (USB or Bluetooth), then press any button on it so the browser can see it. Press &#10005; (X) to join, press &#10005; again to leave. First pad connected = Player 1.</p>
+  <button class="btn big" id="btnLobbyStart" disabled>START FIGHT</button>
+  <button class="btn" id="btnLobbyControls">BUTTON MAP</button>
+  <button class="btn" id="btnLobbyBack">BACK</button>
 </div></div>
 
 <!-- Controls -->
@@ -62,8 +76,9 @@
     <tr><td>Shift (hold)</td><td>Block (tap just before a hit = Parry)</td><td>Q</td><td>Special move (needs full gold bar)</td></tr>
     <tr><td>E</td><td>Dash / dodge (i-frames)</td><td>Tab</td><td>Lock-on on/off</td></tr>
     <tr><td>Esc / P</td><td>Pause</td><td>Arrow keys</td><td>Camera if no mouse lock</td></tr>
-    <tr><td colspan="4" class="dim">Gamepad: stick move/camera, A jump, X light, Y heavy, B dash, RB kick, RT special, LB/LT block, R3 lock, Start pause</td></tr>
+    <tr><td colspan="4" class="dim">Keyboard + mouse is for Player 1 in 1-player mode.</td></tr>
   </table>
+  <h2 style="margin-top:6px">GAMEPAD (PlayStation)</h2><div id="padMap"></div>
   <button class="btn" id="btnControlsBack">BACK</button>
 </div></div>
 
@@ -79,7 +94,7 @@
 
 <!-- Pause -->
 <div id="pause" class="screen hidden"><div class="box">
-  <h2>PAUSED</h2>
+  <h2>PAUSED</h2><div id="pauseMsg" class="dim hidden"></div>
   <button class="btn big" id="btnResume">RESUME</button>
   <button class="btn" id="btnPauseControls">CONTROLS</button>
   <button class="btn" id="btnPauseSound">SOUND</button>
