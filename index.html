@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IRON ARENA</title>
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="vignette"></div><div id="hitflash"></div><div id="texts"></div><div id="reticle"></div>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div class="bars">
+    <div class="side left">
+      <div class="name">YOU</div>
+      <div class="hp"><div class="trail"></div><div class="fill"></div></div>
+      <div class="sp"><div class="fill"></div></div>
+      <div class="st"><div class="fill"></div></div>
+      <div class="pips"><i></i><i></i></div>
+    </div>
+    <div class="center"><div id="timer">60</div><div id="roundlbl">ROUND 1</div></div>
+    <div class="side right">
+      <div class="name" id="enemyName">RIVAL</div>
+      <div class="hp"><div class="trail"></div><div class="fill"></div></div>
+      <div class="sp"><div class="fill"></div></div>
+      <div class="st"><div class="fill"></div></div>
+      <div class="pips"><i></i><i></i></div>
+    </div>
+  </div>
+  <div id="combo" class="hidden"></div>
+  <div id="lockhint">LOCK-ON: ON (Tab)</div>
+  <div id="banner"></div>
+</div>
+
+<!-- Loading -->
+<div id="loading" class="screen"><div class="box"><h1>IRON ARENA</h1><div class="bar"><div id="loadfill"></div></div><div id="loadtext">Loading...</div></div></div>
+
+<!-- Main menu -->
+<div id="menu" class="screen hidden"><div class="box">
+  <h1>IRON ARENA</h1><p class="sub">Best of 3 rounds</p>
+  <button class="btn big" id="btnStart">START FIGHT</button>
+  <button class="btn" id="btnDiff">DIFFICULTY: MEDIUM</button>
+  <button class="btn" id="btnControls">CONTROLS</button>
+  <button class="btn" id="btnSound">SOUND</button>
+</div></div>
+
+<!-- Controls -->
+<div id="controls" class="screen hidden"><div class="box wide">
+  <h2>CONTROLS</h2>
+  <table>
+    <tr><td>W A S D</td><td>Move</td><td>Left Click</td><td>Light punch (combo up to 5 hits)</td></tr>
+    <tr><td>Space</td><td>Jump</td><td>Right Click</td><td>Heavy attack (breaks guard)</td></tr>
+    <tr><td>Mouse</td><td>Camera (click to lock pointer)</td><td>R</td><td>Kick (finisher after 2 hits)</td></tr>
+    <tr><td>Shift (hold)</td><td>Block (tap just before a hit = Parry)</td><td>Q</td><td>Special move (needs full gold bar)</td></tr>
+    <tr><td>E</td><td>Dash / dodge (i-frames)</td><td>Tab</td><td>Lock-on on/off</td></tr>
+    <tr><td>Esc / P</td><td>Pause</td><td>Arrow keys</td><td>Camera if no mouse lock</td></tr>
+    <tr><td colspan="4" class="dim">Gamepad: stick move/camera, A jump, X light, Y heavy, B dash, RB kick, RT special, LB/LT block, R3 lock, Start pause</td></tr>
+  </table>
+  <button class="btn" id="btnControlsBack">BACK</button>
+</div></div>
+
+<!-- Sound -->
+<div id="sound" class="screen hidden"><div class="box">
+  <h2>SOUND</h2>
+  <label>Master <input type="range" id="volMaster" min="0" max="1" step="0.05" value="0.8"></label>
+  <label>Effects <input type="range" id="volSfx" min="0" max="1" step="0.05" value="0.9"></label>
+  <label>Music <input type="range" id="volMusic" min="0" max="1" step="0.05" value="0.5"></label>
+  <label class="chk"><input type="checkbox" id="mute"> Mute all</label>
+  <button class="btn" id="btnSoundBack">BACK</button>
+</div></div>
+
+<!-- Pause -->
+<div id="pause" class="screen hidden"><div class="box">
+  <h2>PAUSED</h2>
+  <button class="btn big" id="btnResume">RESUME</button>
+  <button class="btn" id="btnPauseControls">CONTROLS</button>
+  <button class="btn" id="btnPauseSound">SOUND</button>
+  <button class="btn" id="btnRestart">RESTART MATCH</button>
+  <button class="btn" id="btnQuit">MAIN MENU</button>
+</div></div>
+
+<!-- Result -->
+<div id="result" class="screen hidden"><div class="box">
+  <h1 id="resultTitle">VICTORY</h1><p class="sub" id="resultSub"></p>
+  <button class="btn big" id="btnReplay">REPLAY</button>
+  <button class="btn" id="btnMenu">MAIN MENU</button>
+</div></div>
+
+<div id="toast" class="hidden"></div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
