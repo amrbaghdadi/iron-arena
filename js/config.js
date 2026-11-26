@@ -23,12 +23,14 @@ export const CONFIG = {
   padDeadzone: 0.15,
   // Gamepad button numbers (standard mapping, PlayStation names). Change a number to remap a button.
   // 0 X, 1 Circle, 2 Square, 3 Triangle, 4 L1, 5 R1, 6 L2, 7 R2, 8 Share, 9 Options, 10 L3, 11 R3, 12 D-up, 13 D-down, 14 D-left, 15 D-right
-  padMap: { jump: 0, dash: 1, light: 2, heavy: 3, blockA: 4, special: 5, blockB: 6, kick: 7, pause: 9, lock: 11, confirm: 0,
-            dpadUp: 12, dpadDown: 13, dpadLeft: 14, dpadRight: 15 },
+  // v3: R1 lightning, R2 fire, L2 block, L1 = modifier (L1+Square freeze, L1+Triangle shockwave), R3 kick, L3 lock-on (1P)
+  padMap: { jump: 0, dash: 1, light: 2, heavy: 3, mod: 4, lightning: 5, fire: 7, blockA: 6, blockB: -1, kick: 11, lock: 10, pause: 9, confirm: 0,
+            freeze: 2, shock: 3, dpadUp: 12, dpadDown: 13, dpadLeft: 14, dpadRight: 15 },
+  quality: 'medium',
   difficulties: {
-    easy:   { label: 'Easy',   reaction: 0.55, aggression: 0.32, block: 0.18, dodge: 0.08, comboMax: 2, speed: 0.85, damage: 0.7, decide: 0.75, adapt: 0.0,  mistake: 0.30 },
-    medium: { label: 'Medium', reaction: 0.32, aggression: 0.55, block: 0.38, dodge: 0.22, comboMax: 3, speed: 1.0,  damage: 1.0, decide: 0.5,  adapt: 0.55, mistake: 0.15 },
-    hard:   { label: 'Hard',   reaction: 0.17, aggression: 0.78, block: 0.55, dodge: 0.38, comboMax: 5, speed: 1.1,  damage: 1.2, decide: 0.32, adapt: 1.0,  mistake: 0.07 }
+    easy:   { label: 'Easy',   power: 0.25, reaction: 0.55, aggression: 0.32, block: 0.18, dodge: 0.08, comboMax: 2, speed: 0.85, damage: 0.7, decide: 0.75, adapt: 0.0,  mistake: 0.30 },
+    medium: { label: 'Medium', power: 0.6, reaction: 0.32, aggression: 0.55, block: 0.38, dodge: 0.22, comboMax: 3, speed: 1.0,  damage: 1.0, decide: 0.5,  adapt: 0.55, mistake: 0.15 },
+    hard:   { label: 'Hard',   power: 1.0, reaction: 0.17, aggression: 0.78, block: 0.55, dodge: 0.38, comboMax: 5, speed: 1.1,  damage: 1.2, decide: 0.32, adapt: 1.0,  mistake: 0.07 }
   }
 };
 
@@ -54,3 +56,27 @@ export const FIGHTER = {
   parryWindow: 0.18, staminaRegen: 22, staminaDelay: 0.8, comboWindow: 0.4, bufferTime: 0.28,
   hurt: { chest: 0.32, head: 0.2, hips: 0.28 }
 };
+
+// ============================================================
+//  POWERS (v3). cost = mana. cooldown in seconds. All numbers can be changed here.
+//  startup/active/dur are the cast animation timings (release = moment the power is launched).
+// ============================================================
+export const MANA = { max: 100, start: 40, regen: 3.5, hitGain: 0.7, hitTakenGain: 0.35 };
+export const POWERS = {
+  lightning: { label: 'LIGHTNING', color: '#9bd0ff', needsSpecial: true, cost: 0, cooldown: 0, startup: 1.0, active: 0.25, dur: 1.9, lockAt: 0.6,
+               dmg: 40, executeBelow: 35, radius: 2.2, blockMult: 0.4, kb: 9 },
+  fire:      { label: 'FIRE', color: '#ff7a2a', cost: 35, cooldown: 9, startup: 0.3, active: 0.2, dur: 0.75, speed: 13, life: 1.5, radius: 0.55,
+               currentFraction: 0.5, blockDivisor: 4, burnTime: 3, burnDps: 3, kb: 4 },
+  freeze:    { label: 'FREEZE', color: '#7ad8ff', cost: 25, cooldown: 10, startup: 0.3, active: 0.2, dur: 0.7, speed: 17, life: 1.2, radius: 0.6,
+               dmg: 5, freezeTime: 0.7, slowTime: 3.5 },
+  shock:     { label: 'SHOCK', color: '#e8c56a', cost: 30, cooldown: 7, startup: 0.35, active: 0.2, dur: 0.8, speed: 14, maxRadius: 7.5,
+               dmg: 10, kb: 11, blockMult: 0.5 }
+};
+export const POWER_IDS = ['lightning', 'fire', 'freeze', 'shock'];
+export const QUALITY = {
+  low:    { label: 'Low',    pr: 1,    shadow: 1024, bloom: false, ssao: false, dof: false, grain: false, ca: false, torchLights: 2 },
+  medium: { label: 'Medium', pr: 1.25, shadow: 2048, bloom: true,  ssao: false, dof: false, grain: true,  ca: true,  torchLights: 4 },
+  high:   { label: 'High',   pr: 1.75, shadow: 4096, bloom: true,  ssao: true,  dof: false, grain: true,  ca: true,  torchLights: 5 },
+  ultra:  { label: 'Ultra',  pr: 2,    shadow: 4096, bloom: true,  ssao: true,  dof: true,  grain: true,  ca: true,  torchLights: 6 }
+};
+export const QUALITY_ORDER = ['low', 'medium', 'high', 'ultra'];

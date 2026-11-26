@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { CONFIG, MOVES, LIGHT_CHAIN, FIGHTER } from './config.js?v=2';
-import { clamp, damp, dampAngle, angleDiff } from './utils.js?v=2';
+import { CONFIG, MOVES, LIGHT_CHAIN, FIGHTER, MANA, POWER_IDS } from './config.js?v=3';
+import { clamp, damp, dampAngle, angleDiff } from './utils.js?v=3';
 
-const ATTACK_ACTIONS = ['light', 'kick', 'heavy', 'special'];
+const ATTACK_ACTIONS = ['light', 'kick', 'heavy'];
 
 /* Shared fighter: state machine, movement, stamina, combo chain.
    Controllers (Player / Enemy) only fill `this.intent` and call queue(). */
@@ -19,6 +19,8 @@ export class Fighter {
   }
   reset() {
     this.hp = CONFIG.maxHP; this.stamina = CONFIG.maxStamina; this.special = 0;
+    this.mana = MANA.start; this.cd = { fire: 0, freeze: 0, shock: 0 }; this.cdMax = { fire: 1, freeze: 1, shock: 1 };
+    this.burnT = 0; this.burnDps = 0; this.burnSrc = null; this.slowT = 0; this.frozenT = 0; this.zapT = 0; this.castId = null; this.castDef = null; this.castT = 0; this.castRel = false;
     this.state = 'idle'; this.stateTime = 0; this.move = null; this.moveId = null; this.moveT = 0; this.hitDone = false; this.chained = false;
     this.comboIdx = 0; this.comboTimer = 0; this.invuln = 0; this.stun = 0; this.blockTime = 0; this.staminaT = 0;
     this.dead = false; this.dashDir = new THREE.Vector3(); this.hitsTaken = 0; this.lastAction = null;
@@ -50,11 +52,9 @@ export class Fighter {
       return true;
     }
     if (!this.onGround) return false;
+    if (POWER_IDS.includes(a)) return this.game.powers.cast(this, a);
     let id;
-    if (a === 'special') {
-      if (this.special < CONFIG.specialMax) { this.game.ui.flashSpecial(this); return false; }
-      id = 'special'; this.special = 0;
-    } else if (a === 'heavy') { id = 'heavy'; this.comboIdx = 0; }
+    if (a === 'heavy') { id = 'heavy'; this.comboIdx = 0; }
     else {
       const idx = this.comboTimer > 0 || this.state === 'attack' ? this.comboIdx : 0;
       if (a === 'kick') id = idx >= 2 ? 'spinKick' : 'kick'; else id = LIGHT_CHAIN[Math.min(idx, 4)];
@@ -71,7 +71,6 @@ export class Fighter {
     if (this.onSwing) this.onSwing(this, id);
     this.game.audio.swing(id);
     this.vel.set(0, 0, 0);
-    if (id === 'special') { this.game.audio.special(); this.game.fx.burst(this._v.set(this.pos.x, 1, this.pos.z)); }
     return true;
   }
 
@@ -88,6 +87,8 @@ export class Fighter {
 
   takeHit(info) { // info: {stun, knockdown, kb, from(vec dir to push)}
     this.hitsTaken++;
+    if (this.castId) { this.castId = null; this.castDef = null; }
+    if (this.frozenT > 0) { this.frozenT = 0; }
     this.moveId = null; this.move = null; this.comboTimer = 0; this.comboIdx = 0; this.buffer.action = null;
     this.vel.copy(info.dir).multiplyScalar(info.kb);
     if (this.hp <= 0) { this.dead = true; this.enter('knockdown', 'death'); this.vel.multiplyScalar(1.2); this.onGround = true; return; }
@@ -96,7 +97,20 @@ export class Fighter {
   }
 
   update(dt, opp) {
-    const I = this.intent, c = CONFIG;
+    const I = this.intent, c = CONFIG, rdt = dt;
+    // mana / cooldowns / status effects (real time, not slowed)
+    if (!this.dead && this.game.state === 'fight') this.mana = Math.min(MANA.max, this.mana + MANA.regen * rdt);
+    for (const k in this.cd) if (this.cd[k] > 0) this.cd[k] = Math.max(0, this.cd[k] - rdt);
+    if (this.burnT > 0 && !this.dead) {
+      this.burnT -= rdt;
+      if (this.game.state === 'fight') { this.hp = Math.max(0, this.hp - this.burnDps * rdt); if (this.hp <= 0) { this.takeHit({ dir: this.forward.clone().negate(), kb: 2, stun: 0, knockdown: true }); this.game.onKO(this, this.burnSrc || this); } }
+    }
+    if (this.frozenT > 0) { // frozen solid: pose held, nothing moves
+      this.frozenT -= rdt; this.vel.set(0, 0, 0);
+      if (this.frozenT <= 0) { this.stun = 0.05; this.stateTime = 0; }
+      this.root.rotation.y = this.yaw; return;
+    }
+    if (this.slowT > 0) { this.slowT -= rdt; dt *= 0.55; }
     this.stateTime += dt;
     if (this.invuln > 0) this.invuln -= dt;
     if (this.staminaT > 0) this.staminaT -= dt;
@@ -120,7 +134,7 @@ export class Fighter {
     let desiredYaw = null; const toOpp = this._v.copy(opp.pos).sub(this.pos); toOpp.y = 0; const dist = toOpp.length();
     if (this.faceOpp !== false && dist > 0.01) desiredYaw = Math.atan2(toOpp.x, toOpp.z);
     if (this.moveFacing) desiredYaw = this.moveFacing;
-    const canTurn = this.state !== 'dash' && !this.isDown && this.state !== 'hit' && !(this.state === 'attack' && this.moveT > this.move.startup);
+    const canTurn = !(this.state === 'cast' && this.castId === 'lightning' && this.castRel) && this.state !== 'dash' && !this.isDown && this.state !== 'hit' && !(this.state === 'attack' && this.moveT > this.move.startup);
     if (desiredYaw !== null && canTurn) this.yaw = dampAngle(this.yaw, desiredYaw, this.state === 'attack' ? 20 : 11, dt);
 
     // ---- state logic ----
@@ -175,6 +189,11 @@ export class Fighter {
         this.vel.multiplyScalar(Math.exp(-6 * dt));
         if (this.stateTime >= 0.9) { this.enter('idle', 'idle', { fade: 0.1 }); }
         break;
+      case 'cast': {
+        this.vel.multiplyScalar(Math.exp(-10 * dt)); this.game.powers.castTick(this, dt, opp);
+        if (this.castT >= this.castDef.dur) { this.game.powers.castEnd(this); this.enter('idle', 'idle', { fade: 0.12 }); }
+        break;
+      }
       case 'victory': this.vel.multiplyScalar(Math.exp(-6 * dt)); break;
     }
     if (this.dead && this.state !== 'knockdown') this.enter('knockdown', 'death');
@@ -192,6 +211,6 @@ export class Fighter {
     this.root.rotation.y = this.yaw;
     // footsteps
     if ((this.state === 'run' || this.state === 'walk') && this.onGround) { this.stepT -= dt * animSpeed; if (this.stepT <= 0) { this.stepT = 1.3; this.game.audio.step(); if (this.state === 'run') this.game.fx.dustPuff(this.pos, 1, 0.6); } }
-    this.model.update(dt, { speed: animSpeed, fwd, grounded: this.onGround && this.state !== 'jump' });
+    this.model.update(dt, { speed: animSpeed, vspeed: this.vel.length(), fwd, grounded: this.onGround && this.state !== 'jump' });
   }
 }

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { Fighter } from './fighter.js?v=2';
-import { CONFIG } from './config.js?v=2';
+import { Fighter } from './fighter.js?v=3';
+import { CONFIG } from './config.js?v=3';
 
 /* Human fighter. slot 0 = Player 1 (keyboard + mouse in 1P mode, and/or pad slot 0),
    slot 1 = Player 2 (pad slot 1 only). Add more players by creating more Player(game, model, slot). */
@@ -23,7 +23,10 @@ export class Player extends Fighter {
       if (!this.enabled || g.paused) return;
       if (e.code === 'Space') this.queue('jump');
       else if (e.code === 'KeyE') this.queue('dash', this.moveDir());
-      else if (e.code === 'KeyQ') this.queue('special');
+      else if (e.code === 'KeyQ') this.queue('lightning');
+      else if (e.code === 'KeyF') this.queue('fire');
+      else if (e.code === 'KeyC') this.queue('freeze');
+      else if (e.code === 'KeyV') this.queue('shock');
       else if (e.code === 'KeyR') this.queue('kick');
       else if (e.code === 'Tab') this.toggleLock();
     });
@@ -52,10 +55,12 @@ export class Player extends Fighter {
     if (P.anyPressed(s) && s === 0) this.game.padUsed = true;
     if (!this.enabled || this.game.paused) return;
     if (P.pressed(s, M.jump)) this.queue('jump');
-    if (P.pressed(s, M.light)) this.queue('light');
-    if (P.pressed(s, M.heavy)) this.queue('heavy');
+    const mod = P.held(s, M.mod); // L1 held = power modifier: L1+Square freeze, L1+Triangle shockwave
+    if (P.pressed(s, M.light)) this.queue(mod ? 'freeze' : 'light');
+    if (P.pressed(s, M.heavy)) this.queue(mod ? 'shock' : 'heavy');
+    if (P.pressed(s, M.lightning)) this.queue('lightning');
+    if (P.pressed(s, M.fire)) this.queue('fire');
     if (P.pressed(s, M.dash)) this.queue('dash', this.moveDir());
-    if (P.pressed(s, M.special)) this.queue('special');
     if (P.pressed(s, M.kick)) this.queue('kick');
     if (s === 0 && P.pressed(s, M.lock)) this.toggleLock();
     if (s === 0 && this.game.mode === '1p') { // right stick = camera (single player only)

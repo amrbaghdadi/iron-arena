@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { CONFIG, FIGHTER } from './config.js?v=2';
-import { clamp } from './utils.js?v=2';
+import { CONFIG, FIGHTER, MANA } from './config.js?v=3';
+import { clamp } from './utils.js?v=3';
 
 /* Bone-attached hitboxes vs hurtboxes, blocking, parry, counters, hit-stop. */
 export class Combat {
@@ -29,7 +29,7 @@ export class Combat {
     let dmg = mv.dmg * CONFIG.hitPower * (att.dmgMul || 1);
     const counter = def.inStartup && !guarded;
     if (guarded) {
-      if (def.blockTime < FIGHTER.parryWindow && !mv.guardBreak && att.moveId !== 'special') { // PARRY
+      if (def.blockTime < FIGHTER.parryWindow && !mv.guardBreak && true) { // PARRY
         game.rumble(def, 0.3, 0.8, 120); game.rumble(att, 0.6, 0.3, 160); audio.parry(); fx.blockFlash(contact, dir); fx.sparks(contact, dir.clone().negate(), 20, 1.2, fx.cHot);
         game.cam.shake(0.12); game.hitStop(0.12); game.slowmo(0.25, 0.4); ui.popText(def, 'PARRY!', '#ffe27a');
         att.takeHit({ dir: dir.clone().negate(), kb: 3, stun: 0.75, knockdown: false });
@@ -62,6 +62,8 @@ export class Combat {
     if (ko) game.onKO(def, att);
   }
   afterHit(att, def, dmg) {
+    att.mana = Math.min(MANA.max, att.mana + dmg * MANA.hitGain); def.mana = Math.min(MANA.max, def.mana + dmg * MANA.hitTakenGain);
+    if (dmg >= 9) { this.game.post.ca = Math.max(this.game.post.ca, clamp(dmg / 16, 0.3, 1)); }
     att.special = clamp(att.special + dmg * 0.9, 0, CONFIG.specialMax); def.special = clamp(def.special + dmg * 0.5, 0, CONFIG.specialMax);
     const k = att.side;
     this.comboCount[k]++; this.comboTimer[k] = 1.6; if (this.comboCount[k] >= 2) this.game.ui.setCombo(k, this.comboCount[k]);

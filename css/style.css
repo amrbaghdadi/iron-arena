@@ -68,3 +68,20 @@ td{padding:7px 10px;border-bottom:1px solid rgba(224,179,65,.2)}td:nth-child(odd
 label{display:flex;justify-content:space-between;gap:16px;align-items:center;letter-spacing:2px;font-size:14px}label input[type=range]{flex:1;accent-color:#e0a02a}.chk{justify-content:flex-start}
 #toast{position:fixed;left:50%;top:16px;transform:translateX(-50%);background:rgba(20,10,10,.92);border:2px solid #e0b341;padding:12px 18px;font-size:14px;z-index:60;max-width:92vw;text-align:center}
 @media (max-width:700px){.bars{padding:10px 2vw}#timer{font-size:30px}.hp{height:18px}}
+
+/* v3: mana + ability chips + tint overlay */
+.mp{height:8px;margin-top:4px;width:65%;position:relative;background:rgba(0,0,0,.6);border:2px solid #000;overflow:hidden;transform:skewX(-14deg)}
+.side.right .mp{margin-left:auto}
+.mp .fill{position:absolute;left:0;top:0;bottom:0;width:100%;background:linear-gradient(#b48aff,#5a3ad0)}.side.right .mp .fill{left:auto;right:0}
+.mp.flash{outline:2px solid #f44}
+.abil{display:flex;gap:6px;margin-top:7px}.side.right .abil{justify-content:flex-end}
+.chip{position:relative;width:62px;height:34px;border:2px solid #555;background:rgba(0,0,0,.6);overflow:hidden;font-size:10px;font-weight:800;letter-spacing:1px;text-align:center;line-height:1.05;color:#bbb;padding-top:3px;transform:skewX(-8deg)}
+.chip .k{display:block;font-size:12px;color:#fff;text-shadow:0 1px 2px #000;position:relative;z-index:2}.chip .l{position:relative;z-index:2;font-size:8px}
+.chip .cdf{position:absolute;left:0;right:0;bottom:0;height:0;background:rgba(0,0,0,.72);z-index:1}
+.chip .pf{position:absolute;left:0;bottom:0;top:0;width:0;background:rgba(155,208,255,.35);z-index:0}
+.chip.ready{color:#fff;border-color:var(--c);box-shadow:0 0 10px var(--c),inset 0 0 8px var(--c);animation:chip .9s infinite alternate}
+.chip.nomana{border-color:#6a3a8a;color:#8a70a8}
+.chip.flash{outline:2px solid #f44}
+@keyframes chip{to{filter:brightness(1.5)}}
+#tintfx{position:fixed;inset:0;pointer-events:none;opacity:0;z-index:5;transition:opacity .15s}
+@media (max-width:700px){.chip{width:44px;height:30px}.chip .l{display:none}}

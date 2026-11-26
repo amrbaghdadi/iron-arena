@@ -4,7 +4,7 @@ rm -rf /tmp/ia-src && mkdir -p /tmp/ia-src && cp -r js /tmp/ia-src/js && sed -i 
 npx -y esbuild /tmp/ia-src/js/main.js --bundle --format=esm --external:three '--external:three/addons/*' --minify --outfile=/tmp/ia-bundle.js
 python3 - <<'PY'
 h=open('index.html').read(); css=open('css/style.css').read(); js=open('/tmp/ia-bundle.js').read().replace('</script','<\\/script')
-h=h.replace('<link rel="stylesheet" href="css/style.css?v=2">','<style>'+css+'</style>')
-h=h.replace('<script type="module" src="js/main.js?v=2"></script>','<script type="module">'+js+'</script>')
+h=h.replace('<link rel="stylesheet" href="css/style.css?v=3">','<style>'+css+'</style>')
+h=h.replace('<script type="module" src="js/main.js?v=3"></script>','<script type="module">'+js+'</script>')
 open('play.html','w').write(h)
 PY

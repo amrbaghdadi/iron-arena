@@ -4,24 +4,36 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { CONFIG } from './config.js?v=2';
-import { clamp, damp, lerp } from './utils.js?v=2';
-import { AudioEngine } from './audio.js?v=2';
-import { Particles } from './particles.js?v=2';
-import { Arena } from './arena.js?v=2';
-import { CameraRig } from './camera.js?v=2';
-import { UI } from './ui.js?v=2';
-import { Combat } from './combat.js?v=2';
-import { Player } from './player.js?v=2';
-import { Enemy } from './enemy.js?v=2';
-import { Pads } from './pads.js?v=2';
-import { loadCharacterAsset, createModel } from './rig.js?v=2';
+import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+import { CONFIG, QUALITY, QUALITY_ORDER } from './config.js?v=3';
+import { Powers } from './powers.js?v=3';
+import { clamp, damp, lerp } from './utils.js?v=3';
+import { AudioEngine } from './audio.js?v=3';
+import { Particles } from './particles.js?v=3';
+import { Arena } from './arena.js?v=3';
+import { CameraRig } from './camera.js?v=3';
+import { UI } from './ui.js?v=3';
+import { Combat } from './combat.js?v=3';
+import { Player } from './player.js?v=3';
+import { Enemy } from './enemy.js?v=3';
+import { Pads } from './pads.js?v=3';
+import { loadCharacterAsset, createModel } from './rig.js?v=3';
 
-const VignetteShader = {
-  uniforms: { tDiffuse: { value: null }, amount: { value: 0.55 } },
+/* Final pass: vignette + film grain + chromatic aberration (strong hits) + white flash + freeze/burn tint */
+const FinalShader = {
+  uniforms: { tDiffuse: { value: null }, amount: { value: 0.55 }, time: { value: 0 }, grain: { value: 0.045 }, ca: { value: 0 }, flash: { value: 0 }, tint: { value: new THREE.Vector3(1, 1, 1) }, tintAmt: { value: 0 } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
-  fragmentShader: `uniform sampler2D tDiffuse; uniform float amount; varying vec2 vUv;
-    void main(){ vec4 c=texture2D(tDiffuse,vUv); vec2 d=vUv-.5; float v=smoothstep(.85,.25,length(d*vec2(1.1,1.))); c.rgb*=mix(1.-amount,1.,v); gl_FragColor=c; }`
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float amount,time,grain,ca,flash,tintAmt; uniform vec3 tint; varying vec2 vUv;
+    float rnd(vec2 p){ return fract(sin(dot(p,vec2(12.9898,78.233))+time)*43758.5453); }
+    void main(){
+      vec2 d=vUv-.5; float r=length(d); vec2 off=d*(ca*.02+.0006)*(0.4+r*2.);
+      vec3 c=vec3(texture2D(tDiffuse,vUv+off).r,texture2D(tDiffuse,vUv).g,texture2D(tDiffuse,vUv-off).b);
+      float v=smoothstep(.85,.25,length(d*vec2(1.1,1.))); c*=mix(1.-amount,1.,v);
+      c=mix(c,c*tint*1.4,tintAmt*(0.4+r*1.2));
+      c+=(rnd(vUv*vec2(1920.,1080.))-.5)*grain;
+      c=mix(c,vec3(1.6),flash);
+      gl_FragColor=vec4(c,1.); }`
 };
 
 export class Game {
@@ -29,7 +41,7 @@ export class Game {
     this.params = params; this.canvas = document.getElementById('game');
     this.mode = '1p'; this.missing = new Set(); this.joined = [false, false]; this.padUsed = false; this.rawDt = 0.016; this.pauseMsg = '';
     this.state = 'loading'; this.paused = false; this.timers = []; this.hitStopT = 0; this.slow = null; this.timeScale = 1;
-    this.wins = { player: 0, enemy: 0 }; this.round = 1; this.roundTime = CONFIG.roundTime; this.clock = 0; this.fpsAcc = 0; this.fpsN = 0; this.lowQ = false;
+    this.wins = { player: 0, enemy: 0 }; this.round = 1; this.roundTime = CONFIG.roundTime; this.clock = 0; this.fpsAcc = 0; this.fpsN = 0; this.lowQ = false; this.post = { flash: 0, ca: 0 };
     try { const d = localStorage.getItem('ia_diff'); if (d && CONFIG.difficulties[d]) CONFIG.difficulty = d; } catch (e) {}
     if (params.get('diff') && CONFIG.difficulties[params.get('diff')]) CONFIG.difficulty = params.get('diff');
     window.__shake = CONFIG.shake;
@@ -41,20 +53,24 @@ export class Game {
     this.pads.onDisconnect = (s) => this.padLost(s); this.pads.onConnect = (s) => this.padBack(s);
     ui.only('loading'); ui.progress(0.05, 'Starting renderer...');
     const r = this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' });
-    r.setPixelRatio(Math.min(devicePixelRatio, 1.75)); r.setSize(innerWidth, innerHeight);
+    r.setSize(innerWidth, innerHeight);
     r.outputColorSpace = THREE.SRGBColorSpace; r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.0;
     r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
+    try { const sq = localStorage.getItem('ia_q'); if (sq && QUALITY[sq]) CONFIG.quality = sq; } catch (e) {}
+    if (this.params.get('q') && QUALITY[this.params.get('q')]) CONFIG.quality = this.params.get('q');
     this.scene = new THREE.Scene();
     this.cam = new CameraRig(innerWidth / innerHeight);
     ui.progress(0.15, 'Building arena...'); await new Promise(r => setTimeout(r, 20));
     this.fx = new Particles(this.scene, r); this.fx.resize();
-    this.arena = new Arena(this.scene, this.params.get('q'));
+    this.arena = new Arena(this.scene, r, CONFIG.quality);
     // post-processing
     const comp = this.composer = new EffectComposer(r);
     comp.addPass(new RenderPass(this.scene, this.cam.camera));
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.55, 0.6, 1.0); comp.addPass(this.bloom);
-    this.vig = new ShaderPass(VignetteShader); comp.addPass(this.vig); comp.addPass(new OutputPass());
-    this.bloom.enabled = CONFIG.bloom;
+    this.ssao = new SSAOPass(this.scene, this.cam.camera, innerWidth, innerHeight); this.ssao.kernelRadius = 0.7; this.ssao.minDistance = 0.002; this.ssao.maxDistance = 0.06; comp.addPass(this.ssao);
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.5, 0.55, 0.92); comp.addPass(this.bloom);
+    this.bokeh = new BokehPass(this.scene, this.cam.camera, { focus: 8, aperture: 0.00012, maxblur: 0.004 }); comp.addPass(this.bokeh);
+    this.vig = new ShaderPass(FinalShader); comp.addPass(this.vig); comp.addPass(new OutputPass());
+    this.applyQuality(CONFIG.quality, true);
 
     // character model (optional GLB, otherwise built-in fighter)
     ui.progress(0.3, 'Loading character model...');
@@ -65,13 +81,24 @@ export class Game {
     this.ai = new Enemy(this, createModel(asset, 'enemy', CONFIG.modelHeight));
     this.p2 = new Player(this, createModel(asset, 'enemy', CONFIG.modelHeight), 1);
     this.enemy = this.ai; this.setMode('1p'); this.renderPadMap();
-    this.combat = new Combat(this);
+    this.combat = new Combat(this); this.powers = new Powers(this);
     this.placeFighters(); this.bindUI(); this.bindWindow();
     ui.progress(1, 'Ready'); await new Promise(r => setTimeout(r, 250));
     this.toMenu();
     requestAnimationFrame((t) => { this.last = t; this.loop(t); });
     if (this.params.get('auto')) this.startMatch();
   }
+
+  applyQuality(name, quiet) {
+    const Q = QUALITY[name] || QUALITY.medium; CONFIG.quality = name; this.Q = Q;
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio, Q.pr)); this.composer.setPixelRatio && this.composer.setPixelRatio(this.renderer.getPixelRatio());
+    this.bloom.enabled = Q.bloom; this.ssao.enabled = Q.ssao; this.bokeh.enabled = Q.dof; this.vig.uniforms.grain.value = Q.grain ? 0.045 : 0;
+    this.arena.setQuality(name); this.resize();
+    try { localStorage.setItem('ia_q', name); } catch (e) {}
+    const t = 'QUALITY: ' + Q.label.toUpperCase(); for (const id of ['btnQuality', 'btnPauseQuality']) { const el = document.getElementById(id); if (el) el.textContent = t; }
+    if (!quiet) this.ui.toast('Graphics quality: ' + Q.label, 1800);
+  }
+  cycleQuality() { this.applyQuality(QUALITY_ORDER[(QUALITY_ORDER.indexOf(CONFIG.quality) + 1) % QUALITY_ORDER.length]); }
 
   /* ---------------- flow ---------------- */
   setMode(m) {
@@ -100,7 +127,7 @@ export class Game {
   renderPadMap() {
     const M = CONFIG.padMap, L = (k) => this.padLabel(M[k]);
     const rows = [['Left stick / D-pad', 'Move'], [L('jump'), 'Jump'], [L('light'), 'Light attack (combo up to 5 hits)'], [L('heavy'), 'Heavy attack (breaks guard)'], [L('dash'), 'Dash / dodge'],
-      [L('blockA') + ' or ' + L('blockB'), 'Block (hold). Tap just before a hit = Parry'], [L('special'), 'Special move (full gold bar)'], [L('kick'), 'Kick'], [L('pause'), 'Pause'],
+      [L('blockA'), 'Block (hold). Tap just before a hit = Parry'], [L('lightning'), 'LIGHTNING ultimate (needs full gold bar)'], [L('fire'), 'FIREBALL (mana)'], [L('mod') + ' + ' + L('freeze'), 'FREEZE (mana)'], [L('mod') + ' + ' + L('shock'), 'SHOCKWAVE (mana)'], [L('kick'), 'Kick'], [L('pause'), 'Pause'],
       ['Right stick', '1-player only: camera'], [L('lock'), '1-player only: lock-on on/off'], [L('confirm') + ' in lobby', 'Join / leave a 2-player match']];
     document.getElementById('padMap').innerHTML = '<table>' + rows.map(r => `<tr><td>${r[0]}</td><td colspan="3">${r[1]}</td></tr>`).join('') + '</table><p class="dim">Same buttons for Player 1 and Player 2. To remap, edit CONFIG.padMap in js/config.js.</p>';
   }
@@ -128,7 +155,7 @@ export class Game {
   }
   toMenu() {
     this.setMode('1p'); this.state = 'menu'; this.paused = false; this.missing.clear(); this.pauseMsg = ''; this.ui.hud(false); this.ui.only('menu'); this.wins = { player: 0, enemy: 0 };
-    this.player.reset(); this.ai.reset(); this.p2.reset(); this.placeFighters(true); this.player.faceOpp = false; this.enemy.faceOpp = false;
+    this.player.reset(); this.ai.reset(); this.p2.reset(); this.powers && this.powers.reset(); this.placeFighters(true); this.player.faceOpp = false; this.enemy.faceOpp = false;
     this.player.enabled = false; this.audio.setIntensity(0.1); this.refreshDiffBtn(); this.cam.zoom = 0;
     if (document.pointerLockElement) document.exitPointerLock();
   }
@@ -138,7 +165,7 @@ export class Game {
   }
   startRound() {
     const p = this.player, e = this.enemy;
-    p.reset(); e.reset(); if (e.resetAI) e.resetAI(); this.placeFighters(); this.roundTime = CONFIG.roundTime; this.ui.setTimer(this.roundTime);
+    p.reset(); e.reset(); if (e.resetAI) e.resetAI(); this.powers && this.powers.reset(); this.post.flash = 0; this.post.ca = 0; this.placeFighters(); this.roundTime = CONFIG.roundTime; this.ui.setTimer(this.roundTime);
     this.ui.setRound(this.round); this.ui.setPips(this.wins); this.ui.setLock(p.lockOn); this.ui.setCombo('player', 0);
     this.state = 'intro'; p.enabled = false; this.cam.forceSnap(); this.cam.zoom = -1.2; this.zoomTarget = 0; this.audio.setIntensity(0.25);
     this.ui.banner('ROUND ' + this.round); this.audio.bell();
@@ -190,6 +217,7 @@ export class Game {
     click('btnLobbyStart', () => { if (this.joined[0] && this.joined[1]) this.startMatch(); });
     click('btnLobbyControls', () => ui.show('controls')); click('btnLobbyBack', () => this.leaveLobby());
     click('btnDiff', () => { const k = Object.keys(CONFIG.difficulties); CONFIG.difficulty = k[(k.indexOf(CONFIG.difficulty) + 1) % k.length]; try { localStorage.setItem('ia_diff', CONFIG.difficulty); } catch (e) {} this.refreshDiffBtn(); });
+    click('btnQuality', () => this.cycleQuality()); click('btnPauseQuality', () => this.cycleQuality());
     click('btnControls', () => { back = 'menu'; ui.show('controls'); });
     click('btnSound', () => { back = 'menu'; ui.show('sound'); });
     click('btnControlsBack', () => ui.hide('controls')); click('btnSoundBack', () => ui.hide('sound'));
@@ -219,7 +247,7 @@ export class Game {
     }
   }
   resize() {
-    this.renderer.setSize(innerWidth, innerHeight); this.composer.setSize(innerWidth, innerHeight); this.cam.setAspect(innerWidth / innerHeight); this.fx.resize();
+    this.renderer.setSize(innerWidth, innerHeight); this.composer.setSize(innerWidth, innerHeight); this.ssao && this.ssao.setSize(innerWidth * this.renderer.getPixelRatio(), innerHeight * this.renderer.getPixelRatio()); this.cam.setAspect(innerWidth / innerHeight); this.fx.resize();
   }
 
   /* ---------------- main loop ---------------- */
@@ -230,7 +258,7 @@ export class Game {
     this.clock += raw;
     // adaptive quality
     this.fpsAcc += raw; this.fpsN++;
-    if (this.fpsAcc > 3) { const fps = this.fpsN / this.fpsAcc; this.fpsAcc = 0; this.fpsN = 0; if (fps < 32 && !this.lowQ && this.state !== 'loading') { this.lowQ = true; this.renderer.setPixelRatio(1); this.bloom.enabled = false; this.resize(); this.ui.toast('Low FPS detected: lowered quality', 3000); } }
+    if (this.fpsAcc > 3) { const fps = this.fpsN / this.fpsAcc; this.fpsAcc = 0; this.fpsN = 0; if (fps < 32 && this.state !== 'loading' && !this.paused) { const i = QUALITY_ORDER.indexOf(CONFIG.quality); if (i > 0) { this.applyQuality(QUALITY_ORDER[i - 1], true); this.ui.toast('Low FPS detected: quality lowered to ' + QUALITY[CONFIG.quality].label, 3500); } } }
     if (!this.paused) {
       for (const t of this.timers) t.t -= raw; const due = this.timers.filter(t => t.t <= 0); this.timers = this.timers.filter(t => t.t > 0); due.forEach(t => t.fn());
       let target = 1;
@@ -240,6 +268,12 @@ export class Game {
       this.step(raw * this.timeScale * CONFIG.gameSpeed, raw);
     }
     this.cam.zoom = damp(this.cam.zoom, this.zoomTarget ?? 0, 2.2, raw);
+    const P = this.post, u = this.vig.uniforms; P.flash *= Math.exp(-7 * raw); P.ca *= Math.exp(-4.5 * raw);
+    u.flash.value = P.flash < 0.01 ? 0 : P.flash; u.ca.value = this.Q.ca ? P.ca : 0; u.time.value = (this.clock % 100);
+    const pl = this.player; let ta = 0; const tc = u.tint.value;
+    if (pl.frozenT > 0 || pl.slowT > 0) { tc.set(0.55, 0.85, 1.4); ta = pl.frozenT > 0 ? 0.6 : 0.3; } else if (pl.burnT > 0) { tc.set(1.5, 0.7, 0.4); ta = 0.35; }
+    u.tintAmt.value = damp(u.tintAmt.value, ta, 8, raw);
+    if (this.bokeh.enabled) this.bokeh.uniforms.focus.value = this.cam.camera.position.distanceTo(this.cam.focus);
     this.composer.render();
   }
   step(dt, raw) {
@@ -255,7 +289,7 @@ export class Game {
       if (this.roundTime <= 0) { const a = p.hp, b = e.hp; this.endRound(a > b ? 'player' : b > a ? 'enemy' : null, 'time'); }
     }
     if (this.state !== 'menu' && this.state !== 'matchend' && this.state !== 'lobby') this.cam.update(raw, p, e, p.lockOn || this.mode === '2p', this.state === 'roundend' ? 'ko' : this.state);
-    this.fx.update(dt); this.arena.update(raw, this.clock, this.fx, this.player.pos.clone().lerp(this.enemy.pos, 0.5));
+    this.powers.update(dt); this.fx.update(dt); this.arena.update(raw, this.clock, this.fx, this.player.pos.clone().lerp(this.enemy.pos, 0.5));
     this.vig.uniforms.amount.value = 0.5 + (1 - Math.min(p.hp / CONFIG.maxHP, 1)) * 0.25;
     this.ui.update(raw, p, e, p.lockOn && this.mode === '1p');
     const danger = 1 - Math.min(p.hp, e.hp) / CONFIG.maxHP, act = (p.state === 'attack' || e.state === 'attack') ? 0.15 : 0;
@@ -276,7 +310,7 @@ export class Game {
     const p = this.player, e = this.enemy; this._bot = (this._bot || 0) - dt; p.enabled = true;
     const to = e.pos.clone().sub(p.pos); const d = to.length();
     if (this._bot <= 0) { this._bot = 0.25 + Math.random() * 0.3; const r = Math.random();
-      if (d > 2.3) { p.keys.add('KeyW'); } else { p.keys.delete('KeyW'); if (r < 0.5) p.queue('light'); else if (r < 0.65) p.queue('kick'); else if (r < 0.75) p.queue('heavy'); else if (r < 0.8) p.queue('special'); else if (r < 0.88) p.queue('dash', p.moveDir()); }
+      if (d > 2.3) { p.keys.add('KeyW'); } else { p.keys.delete('KeyW'); if (r < 0.5) p.queue('light'); else if (r < 0.65) p.queue('kick'); else if (r < 0.75) p.queue('heavy'); else if (r < 0.8) p.queue('lightning'); else if (r < 0.88) p.queue('dash', p.moveDir()); }
       if (Math.random() < 0.1) p.keys.add('ShiftLeft'); else p.keys.delete('ShiftLeft'); }
   }
 }

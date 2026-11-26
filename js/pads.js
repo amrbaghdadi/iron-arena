@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=2';
+import { CONFIG } from './config.js?v=3';
 
 /* Gamepad manager (standard mapping: DualShock 4 / DualSense).
    Slot 0 = first pad that connected (Player 1), slot 1 = second (Player 2), and so on.

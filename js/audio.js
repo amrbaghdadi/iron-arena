@@ -66,6 +66,15 @@ export class AudioEngine {
   ko() { this.tone({ type: 'sine', f1: 90, f2: 25, dur: 1.4, vol: 0.9 }); this.noise({ ft: 'lowpass', f1: 2000, f2: 60, dur: 1.2, vol: 0.5 }); this.tone({ type: 'sawtooth', f1: 220, f2: 55, dur: 1.0, vol: 0.15, delay: 0.05 }); }
   special() { this.tone({ type: 'sawtooth', f1: 80, f2: 600, dur: 0.45, vol: 0.2, attack: 0.1 }); this.noise({ ft: 'bandpass', f1: 300, f2: 4000, dur: 0.5, vol: 0.3, q: 1.5, attack: 0.2 }); }
   bell() { [1, 2.76, 5.4].forEach((m, i) => this.tone({ type: 'sine', f1: 330 * m, f2: 330 * m, dur: 1.4 / (i + 1), vol: 0.22 / (i + 1) })); }
+  cast(id) { if (id === 'lightning') this.charge(); else if (id === 'fire') this.fire(); else if (id === 'freeze') this.freeze(); else if (id === 'shock') this.shock(); }
+  charge() { this.tone({ type: 'sawtooth', f1: 60, f2: 900, dur: 1.0, vol: 0.2, attack: 0.6 }); this.tone({ type: 'sine', f1: 220, f2: 1760, dur: 1.0, vol: 0.12, attack: 0.5 }); this.noise({ ft: 'highpass', f1: 2000, f2: 8000, dur: 1.0, vol: 0.2, attack: 0.7 }); }
+  thunder() { this.noise({ ft: 'lowpass', f1: 6000, f2: 40, dur: 1.6, vol: 0.9 }); this.tone({ type: 'sine', f1: 70, f2: 20, dur: 1.5, vol: 1.0 }); this.noise({ ft: 'highpass', f1: 4000, dur: 0.25, vol: 0.7, delay: 0 }); this.noise({ ft: 'lowpass', f1: 800, f2: 50, dur: 2.2, vol: 0.5, delay: 0.25 }); }
+  fire() { this.noise({ ft: 'bandpass', f1: 300, f2: 1200, dur: 0.5, vol: 0.4, q: 0.7, attack: 0.1 }); this.tone({ type: 'sawtooth', f1: 140, f2: 70, dur: 0.4, vol: 0.2 }); }
+  boom() { this.noise({ ft: 'lowpass', f1: 2500, f2: 60, dur: 0.5, vol: 0.6 }); this.tone({ type: 'sine', f1: 110, f2: 35, dur: 0.5, vol: 0.8 }); }
+  freeze() { this.tone({ type: 'triangle', f1: 2400, f2: 1200, dur: 0.4, vol: 0.18 }); this.tone({ type: 'sine', f1: 3200, f2: 2000, dur: 0.3, vol: 0.1, delay: 0.05 }); this.noise({ ft: 'highpass', f1: 6000, dur: 0.3, vol: 0.2 }); }
+  shatter() { this.noise({ ft: 'highpass', f1: 3000, f2: 7000, dur: 0.3, vol: 0.5 }); this.tone({ type: 'triangle', f1: 1800, f2: 400, dur: 0.25, vol: 0.2 }); }
+  shock() { this.tone({ type: 'sine', f1: 90, f2: 30, dur: 0.6, vol: 0.9 }); this.noise({ ft: 'lowpass', f1: 1500, f2: 80, dur: 0.6, vol: 0.5 }); }
+  burn() { this.noise({ ft: 'bandpass', f1: 900, f2: 500, dur: 0.18, vol: 0.12, q: 0.8 }); }
   ui() { this.tone({ type: 'triangle', f1: 600, f2: 800, dur: 0.07, vol: 0.12 }); }
   fight() { this.tone({ type: 'sawtooth', f1: 110, f2: 220, dur: 0.4, vol: 0.25 }); this.noise({ ft: 'lowpass', f1: 1500, f2: 100, dur: 0.4, vol: 0.3 }); }
   swing(name) { this.whoosh(name === 'heavy' || name === 'spinKick' || name === 'special' ? 1.5 : 0.8); }

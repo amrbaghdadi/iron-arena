@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>IRON ARENA</title>
-<link rel="stylesheet" href="css/style.css?v=2">
+<link rel="stylesheet" href="css/style.css?v=3">
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
@@ -14,7 +14,7 @@
 </head>
 <body>
 <canvas id="game"></canvas>
-<div id="vignette"></div><div id="hitflash"></div><div id="texts"></div><div id="reticle"></div>
+<div id="vignette"></div><div id="tintfx"></div><div id="hitflash"></div><div id="texts"></div><div id="reticle"></div>
 
 <!-- HUD -->
 <div id="hud" class="hidden">
@@ -24,6 +24,8 @@
       <div class="hp"><div class="trail"></div><div class="fill"></div></div>
       <div class="sp"><div class="fill"></div></div>
       <div class="st"><div class="fill"></div></div>
+      <div class="mp"><div class="fill"></div></div>
+      <div class="abil"></div>
       <div class="pips"><i></i><i></i></div>
     </div>
     <div class="center"><div id="timer">60</div><div id="roundlbl">ROUND 1</div></div>
@@ -32,6 +34,8 @@
       <div class="hp"><div class="trail"></div><div class="fill"></div></div>
       <div class="sp"><div class="fill"></div></div>
       <div class="st"><div class="fill"></div></div>
+      <div class="mp"><div class="fill"></div></div>
+      <div class="abil"></div>
       <div class="pips"><i></i><i></i></div>
     </div>
   </div>
@@ -49,6 +53,7 @@
   <button class="btn big" id="btnStart">1 PLAYER vs AI</button>
   <button class="btn big" id="btnTwo">2 PLAYERS (2 PADS)</button>
   <button class="btn" id="btnDiff">DIFFICULTY: MEDIUM</button>
+  <button class="btn" id="btnQuality">QUALITY: MEDIUM</button>
   <button class="btn" id="btnControls">CONTROLS</button>
   <button class="btn" id="btnSound">SOUND</button>
 </div></div>
@@ -73,10 +78,11 @@
     <tr><td>W A S D</td><td>Move</td><td>Left Click</td><td>Light punch (combo up to 5 hits)</td></tr>
     <tr><td>Space</td><td>Jump</td><td>Right Click</td><td>Heavy attack (breaks guard)</td></tr>
     <tr><td>Mouse</td><td>Camera (click to lock pointer)</td><td>R</td><td>Kick (finisher after 2 hits)</td></tr>
-    <tr><td>Shift (hold)</td><td>Block (tap just before a hit = Parry)</td><td>Q</td><td>Special move (needs full gold bar)</td></tr>
-    <tr><td>E</td><td>Dash / dodge (i-frames)</td><td>Tab</td><td>Lock-on on/off</td></tr>
-    <tr><td>Esc / P</td><td>Pause</td><td>Arrow keys</td><td>Camera if no mouse lock</td></tr>
-    <tr><td colspan="4" class="dim">Keyboard + mouse is for Player 1 in 1-player mode.</td></tr>
+    <tr><td>Shift (hold)</td><td>Block (tap just before a hit = Parry)</td><td>E</td><td>Dash / dodge (i-frames)</td></tr>
+    <tr><td>Q</td><td>LIGHTNING ultimate (needs a full gold bar)</td><td>F</td><td>FIREBALL (35 mana, takes 50% of current HP)</td></tr>
+    <tr><td>C</td><td>FREEZE (25 mana, slows the rival)</td><td>V</td><td>SHOCKWAVE (30 mana, pushes back, jump over it)</td></tr>
+    <tr><td>Tab</td><td>Lock-on on/off</td><td>Esc / P</td><td>Pause</td></tr>
+    <tr><td colspan="4" class="dim">Keyboard + mouse is for Player 1 in 1-player mode. Arrow keys move the camera if there is no mouse lock.</td></tr>
   </table>
   <h2 style="margin-top:6px">GAMEPAD (PlayStation)</h2><div id="padMap"></div>
   <button class="btn" id="btnControlsBack">BACK</button>
@@ -96,6 +102,7 @@
 <div id="pause" class="screen hidden"><div class="box">
   <h2>PAUSED</h2><div id="pauseMsg" class="dim hidden"></div>
   <button class="btn big" id="btnResume">RESUME</button>
+  <button class="btn" id="btnPauseQuality">QUALITY: MEDIUM</button>
   <button class="btn" id="btnPauseControls">CONTROLS</button>
   <button class="btn" id="btnPauseSound">SOUND</button>
   <button class="btn" id="btnRestart">RESTART MATCH</button>
@@ -110,6 +117,6 @@
 </div></div>
 
 <div id="toast" class="hidden"></div>
-<script type="module" src="js/main.js?v=2"></script>
+<script type="module" src="js/main.js?v=3"></script>
 </body>
 </html>

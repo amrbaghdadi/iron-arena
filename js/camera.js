@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { clamp, damp, dampAngle, angleDiff, rand } from './utils.js?v=2';
+import { clamp, damp, dampAngle, angleDiff, rand } from './utils.js?v=3';
 
 /* Third-person cinematic camera: mouse orbit, lock-on framing, shake, FOV kicks, KO zoom. */
 export class CameraRig {
